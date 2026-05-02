@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 // Types for the store
 export type ThemeType = 'default' | 'obsidian' | 'ocean' | 'light';
@@ -86,101 +87,112 @@ interface MeetingState {
   clearChat: () => void;
 }
 
-export const useMeetingStore = create<MeetingState>((set) => ({
-  // Defaults
-  user: null,
-  theme: 'light',
-  gridDensity: 'standard',
-  micVolume: 80,
-  speakerVolume: 75,
-  isLeftSidebarOpen: true,
-  isRightSidebarOpen: true,
-  isRecording: false,
-  isMuted: true,
-  isVideoOff: false,
-  isSharingScreen: false,
-  participants: [],
-  transcript: [],
-  chatMessages: [],
+export const useMeetingStore = create<MeetingState>()(
+  persist(
+    (set, get) => ({
+      // Defaults
+      user: null,
+      theme: 'light',
+      gridDensity: 'standard',
+      micVolume: 80,
+      speakerVolume: 75,
+      isLeftSidebarOpen: true,
+      isRightSidebarOpen: true,
+      isRecording: false,
+      isMuted: true,
+      isVideoOff: false,
+      isSharingScreen: false,
+      participants: [],
+      transcript: [],
+      chatMessages: [],
 
-  // Actions
-  setUser: (user) => {
-    // Store token in localStorage for persistence across reloads if needed
-    if (user.accessToken) {
-      localStorage.setItem('auth_token', user.accessToken);
-    }
-    set((state) => ({ 
-      user,
-      participants: state.participants.map(p => 
-        p.id === 'me' ? { ...p, name: user.name } : p
-      )
-    }));
-  },
-  logout: () => {
-    localStorage.removeItem('auth_token');
-    set({ user: null });
-  },
-  setTheme: (theme) => set({ theme }),
-  setGridDensity: (gridDensity) => set({ gridDensity }),
-  setMicVolume: (micVolume) => set({ micVolume }),
-  setSpeakerVolume: (speakerVolume) => set({ speakerVolume }),
-  
-  toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
-  
-  toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
-  
-  toggleRecording: () => set((state) => ({ isRecording: !state.isRecording })),
-  
-  toggleMic: () => set((state) => ({ isMuted: !state.isMuted })),
-  
-  toggleVideo: () => set((state) => ({ isVideoOff: !state.isVideoOff })),
-  
-  toggleScreenShare: () => set((state) => ({ isSharingScreen: !state.isSharingScreen })),
-  
-  updateParticipantSpeaking: (id, isSpeaking) => set((state) => ({
-    participants: state.participants.map(p => 
-      p.id === id ? { ...p, isSpeaking } : p
-    )
-  })),
-  setParticipants: (participants) => set((state) => ({ 
-    participants: participants.map(p => ({
-      ...p,
-      // Mark as 'me' if the name matches the logged in user
-      id: p.name === state.user?.name ? 'me' : p.id
-    }))
-  })),
+      // Actions
+      setUser: (user) => {
+        set((state) => ({ 
+          user,
+          participants: state.participants.map(p => 
+            p.id === 'me' ? { ...p, name: user.name } : p
+          )
+        }));
+      },
+      logout: () => {
+        set({ user: null });
+        // Clear all state on logout
+        localStorage.removeItem('meeting-storage');
+      },
+      setTheme: (theme) => set({ theme }),
+      setGridDensity: (gridDensity) => set({ gridDensity }),
+      setMicVolume: (micVolume) => set({ micVolume }),
+      setSpeakerVolume: (speakerVolume) => set({ speakerVolume }),
+      
+      toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
+      
+      toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
+      
+      toggleRecording: () => set((state) => ({ isRecording: !state.isRecording })),
+      
+      toggleMic: () => set((state) => ({ isMuted: !state.isMuted })),
+      
+      toggleVideo: () => set((state) => ({ isVideoOff: !state.isVideoOff })),
+      
+      toggleScreenShare: () => set((state) => ({ isSharingScreen: !state.isSharingScreen })),
+      
+      updateParticipantSpeaking: (id, isSpeaking) => set((state) => ({
+        participants: state.participants.map(p => 
+          p.id === id ? { ...p, isSpeaking } : p
+        )
+      })),
+      setParticipants: (participants) => set((state) => ({ 
+        participants: participants.map(p => ({
+          ...p,
+          id: p.name === state.user?.name ? 'me' : p.id
+        }))
+      })),
 
-  addTranscriptEntry: (entry) => set((state) => {
-    // Simple de-duplication: ignore if same text as last entry from same speaker
-    const lastEntry = state.transcript[state.transcript.length - 1];
-    if (lastEntry && lastEntry.text === entry.text && lastEntry.speakerId === entry.speakerId) {
-      return state;
-    }
-
-    return {
-      transcript: [
-        ...state.transcript,
-        {
-          ...entry,
-          id: Math.random().toString(36).substring(7),
-          timestamp: new Date().toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-          })
+      addTranscriptEntry: (entry) => set((state) => {
+        const lastEntry = state.transcript[state.transcript.length - 1];
+        if (lastEntry && lastEntry.text === entry.text && lastEntry.speakerId === entry.speakerId) {
+          return state;
         }
-      ].slice(-100) // Keep last 100 entries
-    };
-  }),
 
-  clearTranscript: () => set({ transcript: [] }),
+        return {
+          transcript: [
+            ...state.transcript,
+            {
+              ...entry,
+              id: Math.random().toString(36).substring(7),
+              timestamp: new Date().toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+              })
+            }
+          ].slice(-100)
+        };
+      }),
 
-  addChatMessage: (msg) => set((state) => ({
-    chatMessages: [
-      ...state.chatMessages,
-      { ...msg, id: Math.random().toString(36).substring(7) }
-    ].slice(-200) // Keep last 200 messages
-  })),
+      clearTranscript: () => set({ transcript: [] }),
 
-  clearChat: () => set({ chatMessages: [] }),
-}));
+      addChatMessage: (msg) => set((state) => ({
+        chatMessages: [
+          ...state.chatMessages,
+          { ...msg, id: Math.random().toString(36).substring(7) }
+        ].slice(-200)
+      })),
+
+      clearChat: () => set({ chatMessages: [] }),
+    }),
+    {
+      name: 'meeting-storage',
+      storage: createJSONStorage(() => localStorage),
+      // Only persist specific keys to avoid bloat
+      partialize: (state) => ({ 
+        user: state.user,
+        theme: state.theme,
+        gridDensity: state.gridDensity,
+        micVolume: state.micVolume,
+        speakerVolume: state.speakerVolume
+      }),
+    }
+  )
+);
