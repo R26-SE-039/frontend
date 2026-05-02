@@ -20,9 +20,12 @@ export interface TranscriptEntry {
 }
 
 export interface User {
+  id: string;
   name: string;
   email: string;
   meetingId: string;
+  agileRole: string;
+  accessToken: string;
 }
 
 export interface ChatMessage {
@@ -101,13 +104,22 @@ export const useMeetingStore = create<MeetingState>((set) => ({
   chatMessages: [],
 
   // Actions
-  setUser: (user) => set((state) => ({ 
-    user,
-    participants: state.participants.map(p => 
-      p.id === 'me' ? { ...p, name: user.name } : p
-    )
-  })),
-  logout: () => set({ user: null }),
+  setUser: (user) => {
+    // Store token in localStorage for persistence across reloads if needed
+    if (user.accessToken) {
+      localStorage.setItem('auth_token', user.accessToken);
+    }
+    set((state) => ({ 
+      user,
+      participants: state.participants.map(p => 
+        p.id === 'me' ? { ...p, name: user.name } : p
+      )
+    }));
+  },
+  logout: () => {
+    localStorage.removeItem('auth_token');
+    set({ user: null });
+  },
   setTheme: (theme) => set({ theme }),
   setGridDensity: (gridDensity) => set({ gridDensity }),
   setMicVolume: (micVolume) => set({ micVolume }),

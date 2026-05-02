@@ -6,7 +6,7 @@ import { useMeetingStore } from './store/useMeetingStore';
 
 function App() {
   const { user } = useMeetingStore();
-  const isAuthenticated = !!user;
+  const hasJoinedMeeting = !!(user && user.meetingId);
 
   return (
     <BrowserRouter>
@@ -14,7 +14,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={
-            isAuthenticated ? <MeetingPage /> : <Navigate to="/login" />
+            hasJoinedMeeting ? <MeetingPage /> : <Navigate to="/login" />
           } />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
