@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dark: #0a0a0a;
+  --color-primary: #06b6d4;
+  --color-secondary: #d946ef;
+  --color-accent: #84cc16;
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Base Body Styling */
+@layer base {
+  body {
+    @apply transition-colors duration-500 font-[Lexend] antialiased;
+  }
+}
+
+/* --- Theme Definitions --- */
+
+/* Midnight (Default Dark) */
+:root {
+  --bg-main: #020617;
+  --bg-sidebar: #0f172a;
+  --bg-surface: #1e293b;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --text-main: #f8fafc;
+  --text-dim: #94a3b8;
+  --accent-blue: #3b82f6;
+  --accent-secondary: #f43f5e;
+}
+
+/* Obsidian (Amoled Dark) */
+.theme-obsidian {
+  --bg-main: #000000;
+  --bg-sidebar: #0a0a0a;
+  --bg-surface: #171717;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --text-main: #ffffff;
+  --text-dim: #737373;
+  --accent-blue: #2563eb;
+  --accent-secondary: #e11d48;
+}
+
+/* Enterprise (Corporate Blue) */
+.theme-ocean {
+  --bg-main: #0c1e33;
+  --bg-sidebar: #112a4a;
+  --bg-surface: #17365d;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-main: #f0f9ff;
+  --text-dim: #7dd3fc;
+  --accent-blue: #0ea5e9;
+  --accent-secondary: #38bdf8;
+}
+
+/* Light / Minimal (Professional Light) */
+.theme-light {
+  --bg-main: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-surface: #f1f5f9;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --text-main: #0f172a;
+  --text-dim: #64748b;
+  --accent-blue: #2563eb;
+  --accent-secondary: #ef4444;
+}
+
+/* Custom Scrollbar for Transcript */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
+}
+
+/* Glassmorphism utility */
+.glass {
+  @apply bg-white/5 backdrop-blur-[20px] border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+}
+
+/* AI Feature Backgrounds */
+.neural-mesh {
+  background-image: 
+    radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0);
+  background-size: 32px 32px;
+}
+
+.ai-glow-orb {
+  filter: blur(100px);
+  @apply opacity-30 transition-all duration-1000;
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); opacity: 0; }
+  20% { opacity: 0.1; }
+  80% { opacity: 0.1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+.animate-scan {
+  animation: scan-line 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.bg-gradient-mesh {
+  background: radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.3) 0px, transparent 50%),
+              radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.3) 0px, transparent 50%),
+              radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.25) 0px, transparent 50%);
+}
+
+.binary-stream {
+  mask-image: linear-gradient(to bottom, transparent, black, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black, transparent);
+}
