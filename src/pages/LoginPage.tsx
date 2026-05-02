@@ -12,6 +12,7 @@ import { AuthPromo } from '../components/auth/AuthPromo';
 import { meetingApi } from '../api/meetingApi';
 import { authApi } from '../api/authApi';
 import { loginSchema, registerSchema, validateForm } from '../utils/validation';
+import { ProfileForm } from '../components/auth/ProfileForm';
 
 const PROMO_IMAGE_JOIN = "/images/meeting_promo_light_1775519945157.png";
 const PROMO_IMAGE_CREATE = "/images/ai_transcription_promo_1775519960749.png";
@@ -38,6 +39,7 @@ export const LoginPage: React.FC = () => {
   const [agileRole, setAgileRole] = useState('Developer');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [roles, setRoles] = useState<string[]>([]);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const { user, setUser } = useMeetingStore();
   const navigate = useNavigate();
@@ -284,66 +286,83 @@ export const LoginPage: React.FC = () => {
                   <h2 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em]">Dashboard</h2>
                   <p className="text-xs text-gray-400 mt-1">Logged in as <span className="text-[#0E71EB] font-bold">{user.name}</span> ({user.agileRole})</p>
                 </div>
-                <button 
-                  onClick={() => useMeetingStore.getState().logout()}
-                  className="text-[10px] font-black text-gray-400 hover:text-red-500 uppercase tracking-widest transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
-
-              {!isCreated && (
-                <div className="flex bg-gray-100 p-1 rounded-xl w-fit">
-                  <button
-                    onClick={() => { setActiveTab('join'); setError(null); }}
-                    className={`px-8 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'join' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setIsEditingProfile(!isEditingProfile)}
+                    className="text-[10px] font-black text-gray-400 hover:text-blue-500 uppercase tracking-widest transition-colors"
                   >
-                    Join
+                    {isEditingProfile ? 'Back to Room' : 'Edit Profile'}
                   </button>
-                  <button
-                    onClick={() => { setActiveTab('create'); setError(null); }}
-                    className={`px-8 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'create' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  <button 
+                    onClick={() => useMeetingStore.getState().logout()}
+                    className="text-[10px] font-black text-gray-400 hover:text-red-500 uppercase tracking-widest transition-colors"
                   >
-                    Host
+                    Logout
                   </button>
                 </div>
-              )}
+              </div>
 
-              {activeTab === 'join' ? (
-                <JoinForm
-                  handleJoin={handleJoin}
-                  isLoading={isLoading}
-                  error={error}
-                  meetingId={meetingId}
-                  setMeetingId={setMeetingId}
-                  passcode={passcode}
-                  setPasscode={setPasscode}
-                  name={user.name}
-                  setName={() => {}} // Disabled as it comes from auth
-                  email={user.email}
-                  setEmail={() => {}} // Disabled as it comes from auth
-                />
+              {isEditingProfile ? (
+                <div className="p-8 bg-gray-50 rounded-3xl border border-gray-100 animate-in slide-in-from-bottom-2 duration-500">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">Professional Identity</h2>
+                  <ProfileForm />
+                </div>
               ) : (
-                <HostForm 
-                    handleCreate={handleCreate}
-                    isLoading={isLoading}
-                    error={error}
-                    name={user.name}
-                    setName={() => {}}
-                    email={user.email}
-                    setEmail={() => {}}
-                    isCreated={isCreated}
-                    inviteDetails={inviteDetails}
-                    isCopied={isCopied}
-                    copyToClipboard={copyToClipboard}
-                    onReset={() => { setActiveTab('join'); setIsCreated(false); }}
-                    mode={mode}
-                    setMode={setMode}
-                    scheduledDate={scheduledDate}
-                    setScheduledDate={setScheduledDate}
-                    scheduledTime={scheduledTime}
-                    setScheduledTime={setScheduledTime}
-                  />
+                <>
+                  {!isCreated && (
+                    <div className="flex bg-gray-100 p-1 rounded-xl w-fit">
+                      <button
+                        onClick={() => { setActiveTab('join'); setError(null); }}
+                        className={`px-8 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'join' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Join
+                      </button>
+                      <button
+                        onClick={() => { setActiveTab('create'); setError(null); }}
+                        className={`px-8 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'create' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Host
+                      </button>
+                    </div>
+                  )}
+
+                  {activeTab === 'join' ? (
+                    <JoinForm
+                      handleJoin={handleJoin}
+                      isLoading={isLoading}
+                      error={error}
+                      meetingId={meetingId}
+                      setMeetingId={setMeetingId}
+                      passcode={passcode}
+                      setPasscode={setPasscode}
+                      name={user.name}
+                      setName={() => {}} // Disabled as it comes from auth
+                      email={user.email}
+                      setEmail={() => {}} // Disabled as it comes from auth
+                    />
+                  ) : (
+                    <HostForm 
+                        handleCreate={handleCreate}
+                        isLoading={isLoading}
+                        error={error}
+                        name={user.name}
+                        setName={() => {}}
+                        email={user.email}
+                        setEmail={() => {}}
+                        isCreated={isCreated}
+                        inviteDetails={inviteDetails}
+                        isCopied={isCopied}
+                        copyToClipboard={copyToClipboard}
+                        onReset={() => { setActiveTab('join'); setIsCreated(false); }}
+                        mode={mode}
+                        setMode={setMode}
+                        scheduledDate={scheduledDate}
+                        setScheduledDate={setScheduledDate}
+                        scheduledTime={scheduledTime}
+                        setScheduledTime={setScheduledTime}
+                      />
+                  )}
+                </>
               )}
             </div>
           )}

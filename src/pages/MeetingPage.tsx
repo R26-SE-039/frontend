@@ -13,6 +13,7 @@ import { TranscriptSidebar } from '../components/meeting/TranscriptSidebar';
 import { ControlBar } from '../components/meeting/ControlBar';
 import { ChatPanel } from '../components/meeting/ChatPanel';
 import { IntelligencePanel } from '../components/meeting/IntelligencePanel';
+import { ProfileForm } from '../components/auth/ProfileForm';
 
 export const MeetingPage: React.FC = () => {
   const [activePanel, setActivePanel] = React.useState<'transcript' | 'participants' | 'chat' | 'security' | 'settings' | 'intelligence'>('transcript');
@@ -246,6 +247,11 @@ export const MeetingPage: React.FC = () => {
                         </button>
                       ))}
                     </div>
+                  </section>
+
+                  <section className="pt-4 border-t border-gray-100">
+                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">User Profile</h3>
+                    <ProfileForm />
                   </section>
 
                   <section className="space-y-6">

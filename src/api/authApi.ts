@@ -53,5 +53,32 @@ export const authApi = {
     const response = await fetch(`${AUTH_API_URL}/auth/roles`);
     if (!response.ok) throw new Error('Failed to fetch roles');
     return response.json();
+  },
+
+  getProfile: async (token: string) => {
+    const response = await fetch(`${AUTH_API_URL}/auth/profile`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      if (response.status === 404) return null; // Profile might not exist yet
+      throw new Error('Failed to fetch profile');
+    }
+    return response.json();
+  },
+
+  updateProfile: async (token: string, profile: any) => {
+    const response = await fetch(`${AUTH_API_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(profile),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to update profile');
+    }
+    return response.json();
   }
 };
