@@ -10,8 +10,8 @@ export const authApi = {
 
     if (!response.ok) {
       const error = await response.json();
-      const message = Array.isArray(error.detail) 
-        ? error.detail.map((e: any) => e.message).join(', ') 
+      const message = Array.isArray(error.detail)
+        ? error.detail.map((e: any) => e.message).join(', ')
         : (error.detail || 'Login failed');
       throw new Error(message);
     }
@@ -28,8 +28,8 @@ export const authApi = {
 
     if (!response.ok) {
       const error = await response.json();
-      const message = Array.isArray(error.detail) 
-        ? error.detail.map((e: any) => e.message).join(', ') 
+      const message = Array.isArray(error.detail)
+        ? error.detail.map((e: any) => e.message).join(', ')
         : (error.detail || 'Registration failed');
       throw new Error(message);
     }
@@ -69,7 +69,7 @@ export const authApi = {
   updateProfile: async (token: string, profile: any) => {
     const response = await fetch(`${AUTH_API_URL}/auth/profile`, {
       method: 'PUT',
-      headers: { 
+      headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },

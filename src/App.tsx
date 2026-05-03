@@ -18,21 +18,21 @@ function App() {
       <div className="min-h-screen bg-[#F4F7FB] text-gray-800 font-sans">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <DashboardPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/meeting/:id" 
+          <Route
+            path="/meeting/:id"
             element={
               <ProtectedRoute>
                 <MeetingPage />
               </ProtectedRoute>
-            } 
+            }
           />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

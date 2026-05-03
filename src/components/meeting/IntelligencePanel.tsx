@@ -50,8 +50,8 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ meetingId,
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">RAG Engine Active</p>
           </div>
         </div>
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
         >
           <div className="w-5 h-5 flex items-center justify-center">✕</div>
@@ -62,7 +62,7 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ meetingId,
         {/* Actions Section */}
         <section className="space-y-3">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Available Actions</h3>
-          <button 
+          <button
             disabled={loading}
             onClick={() => handleAnalyze('action_items')}
             className="w-full group flex items-center justify-between p-4 rounded-2xl border border-indigo-100 bg-indigo-50/30 hover:bg-indigo-50 transition-all text-left disabled:opacity-50"
@@ -92,7 +92,7 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ meetingId,
             <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-center animate-in fade-in zoom-in">
               <AlertCircle size={24} className="text-red-500 mx-auto mb-2" />
               <p className="text-sm font-bold text-red-900">{error}</p>
-              <button 
+              <button
                 onClick={() => setError(null)}
                 className="mt-3 text-xs font-bold text-red-600 hover:text-red-700 underline"
               >
@@ -104,16 +104,16 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ meetingId,
           {result && !loading && (
             <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex items-center justify-between mb-3 px-1">
-                 <div className="flex items-center gap-2 text-emerald-600">
-                    <CheckCircle2 size={16} />
-                    <span className="text-xs font-bold uppercase tracking-widest">Extracted Results</span>
-                 </div>
-                 <button 
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <CheckCircle2 size={16} />
+                  <span className="text-xs font-bold uppercase tracking-widest">Extracted Results</span>
+                </div>
+                <button
                   onClick={copyToClipboard}
                   className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 hover:text-indigo-600 transition-colors"
-                 >
-                    <Clipboard size={14} /> Copy
-                 </button>
+                >
+                  <Clipboard size={14} /> Copy
+                </button>
               </div>
               <div className="flex-grow bg-gray-50 rounded-2xl border border-gray-100 p-4 text-gray-700 text-sm leading-relaxed overflow-y-auto whitespace-pre-wrap font-medium">
                 {result}
