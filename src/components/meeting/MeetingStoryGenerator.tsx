@@ -3,6 +3,7 @@ import { FileText, Sparkles, Loader2, CheckCircle2, AlertCircle, Clipboard, Arro
 import { motion, AnimatePresence } from 'framer-motion';
 import { meetingApi } from '../../api/meetingApi';
 import { GeneratedStory } from '../../api/ragApi';
+import { useMeetingStore } from '../../store/useMeetingStore';
 
 interface MeetingStoryGeneratorProps {
   meetingId: string;
@@ -26,11 +27,13 @@ export const MeetingStoryGenerator: React.FC<MeetingStoryGeneratorProps> = ({ me
     try {
       // 1. Fetch the actual transcript from the meeting
       const response = await meetingApi.getTranscript(meetingId);
+      const currentProject = useMeetingStore.getState().currentProject;
       
       // 2. Transform into structured RAG payload
       // RAG service expects { transcript: { transcript_id, utterances: [...] }, query }
       const formattedTranscript = {
         transcript_id: meetingId,
+        project_id: currentProject?.id,
         source: 'meeting_record',
         utterances: response.transcript.map((u: any) => ({
           speaker: u.speaker || 'Unknown',

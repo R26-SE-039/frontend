@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Folder, Clock, Users, ArrowRight, LogOut, Search, Grid, List, 
@@ -11,70 +11,62 @@ import { InviteModal } from '../components/project/InviteModal';
 import { CreateProjectModal } from '../components/project/CreateProjectModal';
 import { ProjectCard } from '../components/project/ProjectCard';
 import { ProjectListItem } from '../components/project/ProjectListItem';
+import { projectApi } from '../api/projectApi';
 
-const DUMMY_PROJECTS: Project[] = [
-  {
-    id: 'prj_1',
-    name: 'NextGenQA Platform',
-    description: 'Core development of the intelligent agile assistant and RAG pipeline.',
-    createdAt: '2024-03-10',
-    lastAccessed: '2 mins ago',
-    memberCount: 12,
-    userRole: 'Admin',
-    isPrivate: false
-  },
-  {
-    id: 'prj_2',
-    name: 'Mobile App Migration',
-    description: 'Refactoring the legacy mobile app into a modern React Native workspace.',
-    createdAt: '2024-04-15',
-    lastAccessed: '1 hour ago',
-    memberCount: 5,
-    userRole: 'Editor',
-    isPrivate: true
-  },
-  {
-    id: 'prj_3',
-    name: 'Infrastructure Scaling',
-    description: 'Kubernetes cluster optimization and database sharding implementation.',
-    createdAt: '2024-05-20',
-    lastAccessed: 'Yesterday',
-    memberCount: 8,
-    userRole: 'Viewer',
-    isPrivate: false
-  }
-];
+// Dummy projects removed - using backend API
 
 export const ProjectDashboard: React.FC = () => {
   const { user, logout, setCurrentProject } = useMeetingStore();
   const navigate = useNavigate();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isCreating, setIsCreating] = useState(false);
   const [invitingProject, setInvitingProject] = useState<Project | null>(null);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const data = await projectApi.getProjects();
+      setProjects(data);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectProject = (project: Project) => {
     setCurrentProject(project);
     navigate('/dashboard');
   };
 
-  const handleCreateProject = (name: string, description: string, invitedEmails: string[]) => {
-    const newProject: Project = {
-      id: `prj_${Math.random().toString(36).substring(7)}`,
-      name,
-      description,
-      createdAt: new Date().toISOString().split('T')[0],
-      lastAccessed: 'Just now',
-      memberCount: 1 + invitedEmails.length,
-      userRole: 'Admin',
-      isPrivate: false
-    };
-    handleSelectProject(newProject);
+  const handleCreateProject = async (name: string, description: string, invitedEmails: string[]) => {
+    try {
+      const project = await projectApi.createProject({ name, description });
+      
+      // Send invitations in background
+      if (invitedEmails.length > 0) {
+        Promise.all(invitedEmails.map(email => 
+          projectApi.inviteMember(project.id, email, 'Editor')
+        )).catch(err => console.error('Failed to send some invitations:', err));
+      }
+
+      handleSelectProject(project);
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      alert('Failed to create project. Please try again.');
+    }
   };
 
-  const filteredProjects = DUMMY_PROJECTS.filter(p => 
+  const filteredProjects = projects.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -160,56 +152,76 @@ export const ProjectDashboard: React.FC = () => {
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           <div className="max-w-6xl mx-auto">
-            <AnimatePresence mode="wait">
-              {viewMode === 'grid' ? (
-                <motion.div 
-                  key="grid"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-24">
+                <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4" />
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Synchronizing Workspaces...</p>
+              </div>
+            ) : filteredProjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white border border-dashed border-slate-200 rounded-2xl">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mb-6">
+                  <Folder size={32} />
+                </div>
+                <h3 className="text-lg font-black text-slate-900 mb-1">No workspaces found</h3>
+                <p className="text-slate-400 text-sm font-medium mb-8 max-w-xs text-center">Get started by creating your first agile project workspace.</p>
+                <button 
+                  onClick={() => setIsCreating(true)}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95"
                 >
-                  {filteredProjects.map((project, idx) => (
-                    <ProjectCard 
-                      key={project.id}
-                      project={project}
-                      idx={idx}
-                      onSelect={handleSelectProject}
-                      onInvite={setInvitingProject}
-                    />
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="list"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"
-                >
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Name</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Role</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Activity</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProjects.map((project) => (
-                        <ProjectListItem 
-                          key={project.id}
-                          project={project}
-                          onSelect={handleSelectProject}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  Create Your First Project
+                </button>
+              </div>
+            ) : (
+              <AnimatePresence mode="wait">
+                {viewMode === 'grid' ? (
+                  <motion.div 
+                    key="grid"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+                  >
+                    {filteredProjects.map((project, idx) => (
+                      <ProjectCard 
+                        key={project.id}
+                        project={project}
+                        idx={idx}
+                        onSelect={handleSelectProject}
+                        onInvite={setInvitingProject}
+                      />
+                    ))}
+                  </motion.div>
+                ) : (
+                  <motion.div 
+                    key="list"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"
+                  >
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Name</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Role</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team</th>
+                          <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredProjects.map((project) => (
+                          <ProjectListItem 
+                            key={project.id}
+                            project={project}
+                            onSelect={handleSelectProject}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
           </div>
         </div>
       </div>

@@ -26,10 +26,16 @@ export interface JoinMeetingResponse {
 
 export const meetingApi = {
   createMeeting: async (name: string, mode: 'instant' | 'scheduled', scheduledAt?: string): Promise<CreateMeetingResponse> => {
+    const projectId = useMeetingStore.getState().currentProject?.id;
     const response = await fetch(`${SESSION_API_URL}/meeting/create`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ name, mode, scheduled_at: scheduledAt }),
+      body: JSON.stringify({ 
+        name, 
+        mode, 
+        scheduled_at: scheduledAt,
+        project_id: projectId 
+      }),
     });
 
     if (!response.ok) {
@@ -80,13 +86,14 @@ export const meetingApi = {
   },
 
   generateUserStories: async (transcript: any, query: string = "Generate user stories based on this meeting transcript") => {
+    const projectId = useMeetingStore.getState().currentProject?.id;
     const response = await fetch(`${RAG_API_URL}/pipeline/run`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        transcript,
+        transcript: { ...transcript, project_id: projectId },
         query,
       }),
     });
