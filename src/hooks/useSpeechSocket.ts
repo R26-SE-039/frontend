@@ -46,15 +46,23 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastMeetingIdRef = useRef<string | null>(null);
     const heartbeatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const { user, addTranscriptEntry, isMuted, setParticipants, addChatMessage } = useMeetingStore();
+    const { 
+        user, addTranscriptEntry, isMuted, setParticipants, addChatMessage,
+        clearTranscript, clearChat 
+    } = useMeetingStore();
 
     // ─── WebSocket: Connect on mount, auto-reconnect ───────────────
     const connectWebSocket = useCallback(() => {
         if (!user?.meetingId) return;
         
-        // If meeting ID changed, force close old connection
+        // If meeting ID changed, force close old connection and CLEAR LOCAL STATE
         if (lastMeetingIdRef.current !== user.meetingId) {
-            console.log('[WS] Meeting ID changed, closing old connection');
+            console.log('[WS] Meeting ID changed, clearing old state and reconnecting');
+            
+            // Clear the store so we don't see previous meeting's data
+            clearTranscript();
+            clearChat();
+
             if (wsRef.current) {
                 wsRef.current.close();
                 wsRef.current = null;
@@ -136,7 +144,7 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
         };
 
         wsRef.current = ws;
-    }, [user?.meetingId, addTranscriptEntry]);
+    }, [user?.meetingId, addTranscriptEntry, clearTranscript, clearChat, setParticipants, addChatMessage]);
 
     // Connect WebSocket immediately on mount
     useEffect(() => {
