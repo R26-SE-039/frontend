@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Settings, Users, MessageSquare, Shield, Activity, LayoutGrid, Radio, Sparkles, Download
 } from 'lucide-react';
@@ -17,6 +18,7 @@ import { ProfileForm } from '../components/auth/ProfileForm';
 import { EndOfMeetingSummary } from '../components/meeting/EndOfMeetingSummary';
 
 export const MeetingPage: React.FC = () => {
+   const navigate = useNavigate();
    const [activePanel, setActivePanel] = React.useState<'transcript' | 'participants' | 'chat' | 'security' | 'settings' | 'intelligence' | null>('transcript');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isMeetingEnded, setIsMeetingEnded] = React.useState(false);
@@ -323,7 +325,9 @@ export const MeetingPage: React.FC = () => {
             meetingId={user?.meetingId || ''}
             duration={formatTime(sessionTime)}
             participantCount={participants.length}
-            onExit={logout}
+            onExit={() => {
+              navigate('/dashboard');
+            }}
           />
         )}
         

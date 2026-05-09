@@ -104,21 +104,21 @@ export const FileStoryGenerator: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto h-full flex flex-col space-y-8 animate-in fade-in duration-500">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-black text-gray-900 tracking-tight">Transcript to Story Hub</h2>
-        <p className="text-gray-400 text-sm font-medium">Transform raw meeting transcripts into structured, ready-to-code user stories.</p>
+    <div className="w-full max-w-7xl mx-auto h-full flex flex-col space-y-4 animate-in fade-in duration-500">
+      <div className="space-y-1 mb-2">
+        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Transcript to Story Hub</h2>
+        <p className="text-gray-400 text-xs font-medium">Transform raw meeting transcripts into structured, ready-to-code user stories.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-grow">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-grow">
         {/* Left Column: Control Panel */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-xl  border border-gray-100 p-8 shadow-sm space-y-6 sticky top-8">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Control Panel</h3>
+        <div className="lg:col-span-3 space-y-4">
+          <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm space-y-5 sticky top-8">
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Control Panel</h3>
 
             <div
               onClick={() => fileInputRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-all cursor-pointer group
+              className={`relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-all cursor-pointer group
                 ${file ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/20'}`}
             >
               <input
@@ -129,42 +129,42 @@ export const FileStoryGenerator: React.FC = () => {
                 className="hidden"
               />
 
-              <div className={`w-14 h-14 rounded-lg flex items-center justify-center mb-4 transition-all group-hover:scale-110 shadow-sm
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-all group-hover:scale-110 shadow-sm
                 ${file ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-50 text-gray-400 group-hover:bg-indigo-100 group-hover:text-indigo-600'}`}>
-                {file ? <FileText size={28} /> : <Upload size={28} />}
+                {file ? <FileText size={20} /> : <Upload size={20} />}
               </div>
 
               <div className="text-center">
-                <p className="text-sm font-bold text-gray-900 truncate max-w-[180px]">
+                <p className="text-xs font-bold text-gray-900 truncate max-w-[140px]">
                   {file ? file.name : 'Upload .txt'}
                 </p>
-                <p className="text-[10px] text-gray-400 mt-1 uppercase font-black tracking-tighter">
+                <p className="text-[9px] text-gray-400 mt-0.5 uppercase font-black tracking-tighter">
                   {file ? 'Click to change' : 'Drag or click'}
                 </p>
               </div>
             </div>
 
             {error && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-[10px] font-black uppercase tracking-wider flex items-center gap-3">
-                <AlertCircle size={14} className="shrink-0" /> {error}
+              <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[9px] font-black uppercase tracking-wider flex items-center gap-2">
+                <AlertCircle size={12} className="shrink-0" /> {error}
               </div>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button
                 disabled={!file || loading}
                 onClick={handleUpload}
-                className="w-full py-4 rounded-lg bg-gray-900 text-white text-sm font-bold flex items-center justify-center gap-3 hover:bg-black transition-all active:scale-[0.98] shadow-xl shadow-gray-200 disabled:opacity-30"
+                className="w-full py-3 rounded-lg bg-gray-900 text-white text-xs font-bold flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-gray-200 disabled:opacity-30"
               >
-                {loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 {loading ? 'Processing...' : 'Generate Stories'}
               </button>
 
               <button
                 onClick={reset}
-                className="w-full py-3 rounded-lg border border-gray-100 text-gray-400 text-xs font-bold hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-lg border border-gray-100 text-gray-400 text-[10px] font-bold hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-1.5"
               >
-                <Trash2 size={14} /> Reset View
+                <Trash2 size={12} /> Reset View
               </button>
             </div>
 
@@ -181,8 +181,8 @@ export const FileStoryGenerator: React.FC = () => {
         </div>
 
         {/* Right Column: Results Display */}
-        <div className="lg:col-span-8 min-h-[600px] flex flex-col">
-          <div className="bg-gray-50/50 rounded-xl border border-gray-100 flex-grow relative overflow-hidden flex flex-col">
+        <div className="lg:col-span-9 min-h-[500px] flex flex-col">
+          <div className="bg-gray-50/50 rounded-2xl border border-gray-100 flex-grow relative overflow-hidden flex flex-col">
             <AnimatePresence mode="wait">
               {loading ? (
                 <motion.div
@@ -190,14 +190,14 @@ export const FileStoryGenerator: React.FC = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex flex-col items-center justify-center text-center p-12"
+                  className="absolute inset-0 flex flex-col items-center justify-center text-center p-8"
                 >
-                  <div className="relative mb-8">
-                    <div className="w-24 h-24 rounded-full border-8 border-indigo-100 border-t-indigo-600 animate-spin" />
-                    <Sparkles size={32} className="absolute inset-0 m-auto text-indigo-600 animate-pulse" />
+                  <div className="relative mb-6">
+                    <div className="w-16 h-16 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
+                    <Sparkles size={24} className="absolute inset-0 m-auto text-indigo-600 animate-pulse" />
                   </div>
-                  <h3 className="text-2xl font-black text-gray-900 mb-2">Analyzing Context...</h3>
-                  <p className="text-gray-400 max-w-sm font-medium">Mapping transcript utterances to product features and agile requirement patterns.</p>
+                  <h3 className="text-xl font-black text-gray-900 mb-2">Analyzing Context...</h3>
+                  <p className="text-gray-400 text-sm max-w-sm font-medium">Mapping transcript utterances to product features.</p>
                 </motion.div>
               ) : stories ? (
                 <motion.div
@@ -206,67 +206,65 @@ export const FileStoryGenerator: React.FC = () => {
                   animate={{ opacity: 1 }}
                   className="flex flex-col h-full"
                 >
-                  <div className="flex items-center justify-between p-2 border-b border-gray-100 bg-white/50 backdrop-blur-md sticky top-0 z-10">
-                    <div className="flex items-center gap-3">
-                    </div>
-                    <div className="flex gap-2">
+                  <div className="flex items-center justify-end p-2 border-b border-gray-100 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+                    <div className="flex gap-1.5">
                       <button
                         onClick={copyAllStories}
-                        className="p-2.5 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+                        className="p-2 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
                         title="Copy All"
                       >
-                        <Clipboard size={18} />
+                        <Clipboard size={14} />
                       </button>
                       <button
                         onClick={exportToJSON}
-                        className="p-2.5 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-orange-500 hover:border-orange-100 transition-all shadow-sm"
+                        className="p-2 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-orange-500 hover:border-orange-100 transition-all shadow-sm"
                         title="Export JSON"
                       >
-                        <FileJson size={18} />
+                        <FileJson size={14} />
                       </button>
                       <button
                         onClick={exportToCSV}
-                        className="p-2.5 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-emerald-500 hover:border-emerald-100 transition-all shadow-sm"
+                        className="p-2 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-emerald-500 hover:border-emerald-100 transition-all shadow-sm"
                         title="Export CSV (Excel/Jira)"
                       >
-                        <Table size={18} />
+                        <Table size={14} />
                       </button>
                       <button
                         onClick={downloadAsTxt}
-                        className="p-2.5 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-blue-500 hover:border-blue-100 transition-all shadow-sm"
+                        className="p-2 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-blue-500 hover:border-blue-100 transition-all shadow-sm"
                         title="Download TXT"
                       >
-                        <Download size={18} />
+                        <Download size={14} />
                       </button>
                       <button
                         onClick={() => window.print()}
-                        className="p-2.5 rounded-xl bg-white border border-gray-100 text-gray-400 hover:text-gray-900 hover:border-gray-200 transition-all shadow-sm"
+                        className="p-2 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-gray-900 hover:border-gray-200 transition-all shadow-sm"
                         title="Print Results"
                       >
-                        <Printer size={18} />
+                        <Printer size={14} />
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex-grow overflow-y-auto p-8 space-y-6 custom-scrollbar">
+                  <div className="flex-grow overflow-y-auto p-5 space-y-4 custom-scrollbar">
                     {stories.map((story) => (
-                      <div key={story.story_id} className="p-8 bg-white rounded-[32px] border border-gray-100 shadow-[0_4px_24px_rgba(0,0,0,0.02)] hover:border-indigo-200 transition-all group relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-8">
-                          <span className={`text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-widest ${story.priority === 'Must' ? 'bg-red-50 text-red-600' :
+                      <div key={story.story_id} className="p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-200 transition-all group relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4">
+                          <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${story.priority === 'Must' ? 'bg-red-50 text-red-600' :
                             story.priority === 'Should' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                             }`}>
                             {story.priority} Priority
                           </span>
                         </div>
-                        <h4 className="text-lg font-black text-gray-900 mb-3 max-w-[75%]">{story.title}</h4>
-                        <p className="text-sm text-gray-500 mb-8 leading-relaxed font-medium">{story.story}</p>
+                        <h4 className="text-base font-black text-gray-900 mb-2 max-w-[80%]">{story.title}</h4>
+                        <p className="text-xs text-gray-500 mb-4 leading-relaxed font-medium">{story.story}</p>
 
-                        <div className="bg-gray-50/50 rounded-lg p-6 border border-gray-50">
-                          <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Acceptance Criteria</h5>
-                          <div className="space-y-3">
+                        <div className="bg-gray-50/50 rounded-lg p-4 border border-gray-50">
+                          <h5 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Acceptance Criteria</h5>
+                          <div className="space-y-2">
                             {story.acceptance_criteria.map((ac, idx) => (
-                              <div key={idx} className="flex items-start gap-3 text-[11px] text-gray-600 font-semibold">
-                                <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                              <div key={idx} className="flex items-start gap-2 text-[10px] text-gray-600 font-semibold">
+                                <div className="mt-1 w-1 h-1 rounded-full bg-indigo-400 shrink-0" />
                                 <span>{ac}</span>
                               </div>
                             ))}
@@ -281,13 +279,13 @@ export const FileStoryGenerator: React.FC = () => {
                   key="empty"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 opacity-30"
+                  className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 opacity-40"
                 >
-                  <div className="w-32 h-32 rounded-[40px] bg-gray-100 flex items-center justify-center mb-8 border border-gray-200 shadow-inner">
-                    <FileText size={64} className="text-gray-300" />
+                  <div className="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mb-4 border border-gray-200 shadow-inner">
+                    <FileText size={32} className="text-gray-300" />
                   </div>
-                  <h3 className="text-2xl font-black text-gray-900 mb-2">No Results Yet</h3>
-                  <p className="text-gray-500 max-w-sm font-medium italic">Upload a transcript in the control panel and click "Generate Stories" to view insights here.</p>
+                  <h3 className="text-lg font-black text-gray-900 mb-1">No Results Yet</h3>
+                  <p className="text-gray-500 text-xs max-w-sm font-medium italic">Upload a transcript and click "Generate Stories" to view insights here.</p>
                 </motion.div>
               )}
             </AnimatePresence>
