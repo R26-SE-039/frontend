@@ -14,7 +14,7 @@ const PROMO_IMAGE_CREATE = "/images/ai_transcription_promo_1775519960749.png";
 type ViewType = 'menu' | 'meeting' | 'file-rag' | 'test-case' | 'test-script';
 
 export const DashboardPage: React.FC = () => {
-  const { user, setUser, logout } = useMeetingStore();
+  const { user, setUser, logout, currentProject } = useMeetingStore();
   const navigate = useNavigate();
   
   const [currentView, setCurrentView] = useState<ViewType>('menu');
@@ -36,6 +36,11 @@ export const DashboardPage: React.FC = () => {
 
   if (!user) {
     navigate('/login');
+    return null;
+  }
+
+  if (!currentProject) {
+    navigate('/projects');
     return null;
   }
 
@@ -104,10 +109,16 @@ export const DashboardPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em]">Workspace Dashboard</h2>
-                <p className="text-xs text-gray-400 mt-1">Authenticated as <span className="text-blue-600 font-bold">{user.name}</span></p>
+                <p className="text-xs text-gray-400 mt-1">Project: <span className="text-blue-600 font-black">{currentProject?.name}</span> • Authenticated as <span className="text-blue-600 font-bold">{user.name}</span></p>
               </div>
               <div className="flex items-center gap-6">
                 <div className="flex gap-4">
+                  <button
+                    onClick={() => navigate('/projects')}
+                    className="text-[10px] font-black text-gray-400 hover:text-blue-500 uppercase tracking-widest transition-colors"
+                  >
+                    Change Project
+                  </button>
                   <button
                     onClick={() => setIsEditingProfile(!isEditingProfile)}
                     className="text-[10px] font-black text-gray-400 hover:text-blue-500 uppercase tracking-widest transition-colors"
@@ -156,9 +167,9 @@ export const DashboardPage: React.FC = () => {
                     <MenuCard
                       title="Agile Meeting Hub"
                       description="Host or join meetings with real-time story generation."
-                      icon={<Users size={24} className="text-indigo-600" />}
+                      icon={<Users size={24} className="text-blue-600" />}
                       onClick={() => setCurrentView('meeting')}
-                      color="indigo"
+                      color="blue"
                     />
                     <MenuCard
                       title="File to User Story"
@@ -374,7 +385,7 @@ export const DashboardPage: React.FC = () => {
 
 const MenuCard = ({ title, description, icon, onClick, color }: any) => {
   const colors: any = {
-    indigo: 'hover:border-indigo-200 hover:bg-indigo-50/30',
+    blue: 'hover:border-blue-200 hover:bg-blue-50/30',
     purple: 'hover:border-purple-200 hover:bg-purple-50/30',
     blue: 'hover:border-blue-200 hover:bg-blue-50/30',
     emerald: 'hover:border-emerald-200 hover:bg-emerald-50/30'

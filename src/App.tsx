@@ -5,6 +5,7 @@ import MeetingPage from './pages/MeetingPage';
 import { useMeetingStore } from './store/useMeetingStore';
 
 import { DashboardPage } from './pages/DashboardPage';
+import { ProjectDashboard } from './pages/ProjectDashboard';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useMeetingStore();
@@ -18,6 +19,14 @@ function App() {
       <div className="min-h-screen bg-[#F4F7FB] text-gray-800 font-sans">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute>
+                <ProjectDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard"
             element={
@@ -34,8 +43,8 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/projects" replace />} />
+          <Route path="*" element={<Navigate to="/projects" replace />} />
         </Routes>
       </div>
     </BrowserRouter>

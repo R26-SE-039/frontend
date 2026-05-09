@@ -30,6 +30,17 @@ export interface User {
   accessToken: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  lastAccessed: string;
+  memberCount: number;
+  userRole: 'Admin' | 'Editor' | 'Viewer';
+  isPrivate: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   sender: string;
@@ -41,7 +52,9 @@ export interface ChatMessage {
 interface MeetingState {
   // Authentication/Identity
   user: User | null;
+  currentProject: Project | null;
   setUser: (user: User) => void;
+  setCurrentProject: (project: Project | null) => void;
   logout: () => void;
 
   // Appearance
@@ -93,6 +106,7 @@ export const useMeetingStore = create<MeetingState>()(
     (set, get) => ({
       // Defaults
       user: null,
+      currentProject: null,
       theme: 'light',
       gridDensity: 'standard',
       micVolume: 80,
@@ -116,8 +130,9 @@ export const useMeetingStore = create<MeetingState>()(
           )
         }));
       },
+      setCurrentProject: (currentProject) => set({ currentProject }),
       logout: () => {
-        set({ user: null });
+        set({ user: null, currentProject: null });
         // Clear all state on logout
         localStorage.removeItem('meeting-storage');
       },
@@ -204,6 +219,7 @@ export const useMeetingStore = create<MeetingState>()(
       // Only persist specific keys to avoid bloat
       partialize: (state) => ({ 
         user: state.user,
+        currentProject: state.currentProject,
         theme: state.theme,
         gridDensity: state.gridDensity,
         micVolume: state.micVolume,

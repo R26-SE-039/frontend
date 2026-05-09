@@ -25,7 +25,7 @@ export const LoginPage: React.FC = () => {
   useEffect(() => {
     // If already logged in, go to dashboard
     if (user) {
-      navigate('/dashboard');
+      navigate('/projects');
     }
 
     const fetchRoles = async () => {
@@ -74,7 +74,7 @@ export const LoginPage: React.FC = () => {
         meetingId: ''
       });
 
-      navigate('/dashboard');
+      navigate('/projects');
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
     } finally {
