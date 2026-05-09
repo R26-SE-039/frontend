@@ -66,7 +66,7 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
         if (wsRef.current?.readyState === WebSocket.OPEN || 
             wsRef.current?.readyState === WebSocket.CONNECTING) return;
 
-        const wsUrl = `${BASE_WS_URL}/${user.meetingId}?name=${encodeURIComponent(user.name)}`;
+        const wsUrl = `${BASE_WS_URL}/${user.meetingId}?name=${encodeURIComponent(user.name)}&role=${encodeURIComponent(user.agileRole || '')}`;
         console.log('[WS] Connecting to', wsUrl);
         const ws = new WebSocket(wsUrl);
         ws.binaryType = 'arraybuffer';
@@ -112,6 +112,7 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
                             text: data.text,
                             speakerId: data.speaker_id,
                             speakerName: data.speaker_name,
+                            isFinal: data.is_final,
                         });
                         break;
                     case 'acoustics':

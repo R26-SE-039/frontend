@@ -18,6 +18,7 @@ export interface TranscriptEntry {
   text: string;
   timestamp: string;
   speakerId: string;
+  isFinal?: boolean;
 }
 
 export interface User {
@@ -151,10 +152,25 @@ export const useMeetingStore = create<MeetingState>()(
 
       addTranscriptEntry: (entry) => set((state) => {
         const lastEntry = state.transcript[state.transcript.length - 1];
-        if (lastEntry && lastEntry.text === entry.text && lastEntry.speakerId === entry.speakerId) {
-          return state;
+        
+        // If the last entry was a "partial" (interim) transcript from the SAME speaker,
+        // we replace it with the new content rather than appending.
+        if (lastEntry && !lastEntry.isFinal && lastEntry.speakerId === entry.speakerId) {
+          const updatedTranscript = [...state.transcript];
+          updatedTranscript[updatedTranscript.length - 1] = {
+            ...lastEntry,
+            text: entry.text,
+            isFinal: entry.isFinal,
+            timestamp: new Date().toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            })
+          };
+          return { transcript: updatedTranscript };
         }
 
+        // Otherwise, add as a new entry
         return {
           transcript: [
             ...state.transcript,
