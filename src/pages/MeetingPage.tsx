@@ -14,10 +14,12 @@ import { ControlBar } from '../components/meeting/ControlBar';
 import { ChatPanel } from '../components/meeting/ChatPanel';
 import { IntelligencePanel } from '../components/meeting/IntelligencePanel';
 import { ProfileForm } from '../components/auth/ProfileForm';
+import { EndOfMeetingSummary } from '../components/meeting/EndOfMeetingSummary';
 
 export const MeetingPage: React.FC = () => {
-  const [activePanel, setActivePanel] = React.useState<'transcript' | 'participants' | 'chat' | 'security' | 'settings' | 'intelligence'>('transcript');
+   const [activePanel, setActivePanel] = React.useState<'transcript' | 'participants' | 'chat' | 'security' | 'settings' | 'intelligence' | null>('transcript');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isMeetingEnded, setIsMeetingEnded] = React.useState(false);
   
   const { 
     isMuted, toggleMic,
@@ -67,31 +69,31 @@ export const MeetingPage: React.FC = () => {
         
         <div className="flex flex-col gap-5 flex-grow">
           <button 
-            onClick={() => setActivePanel('transcript')}
+            onClick={() => setActivePanel(activePanel === 'transcript' ? null : 'transcript')}
             className={`p-3 rounded-xl transition-all ${activePanel === 'transcript' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}
           >
             <LayoutGrid size={22} />
           </button>
           <button 
-            onClick={() => setActivePanel('participants')}
+            onClick={() => setActivePanel(activePanel === 'participants' ? null : 'participants')}
             className={`p-3 rounded-xl transition-all ${activePanel === 'participants' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}
           >
             <Users size={22} />
           </button>
           <button 
-            onClick={() => setActivePanel('chat')}
+            onClick={() => setActivePanel(activePanel === 'chat' ? null : 'chat')}
             className={`p-3 rounded-xl transition-all ${activePanel === 'chat' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}
           >
             <MessageSquare size={22} />
           </button>
           <button 
-            onClick={() => setActivePanel('intelligence')}
+            onClick={() => setActivePanel(activePanel === 'intelligence' ? null : 'intelligence')}
             className={`p-3 rounded-xl transition-all ${activePanel === 'intelligence' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
           >
             <Sparkles size={22} />
           </button>
           <button 
-            onClick={() => setActivePanel('security')}
+            onClick={() => setActivePanel(activePanel === 'security' ? null : 'security')}
             className={`p-3 rounded-xl transition-all ${activePanel === 'security' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}
           >
             <Shield size={22} />
@@ -99,7 +101,7 @@ export const MeetingPage: React.FC = () => {
         </div>
 
         <button 
-          onClick={() => setActivePanel('settings')}
+          onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')}
           className={`p-3 rounded-xl transition-all ${activePanel === 'settings' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}`}
         >
           <Settings size={22} />
@@ -126,11 +128,11 @@ export const MeetingPage: React.FC = () => {
                 gridDensity={gridDensity}
             />
             
-            {/* Topic Detection (Context Bar) */}
+            {/* Conflict Detection (Context Bar) */}
             <div className="h-14 sm:h-16 bg-white border border-gray-100 rounded-2xl px-4 flex items-center justify-between shadow-sm flex-shrink-0 overflow-x-auto no-scrollbar">
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 text-[10px] sm:text-xs font-bold whitespace-nowrap">
-                        <Sparkles size={14} /> Topic Detection: <span className="text-gray-900 ml-1 italic font-medium">Architecture Review</span>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] sm:text-xs font-bold whitespace-nowrap">
+                        <Shield size={14} /> Conflict Detection: <span className="text-gray-900 ml-1 italic font-medium">No conflict detect yet</span>
                     </div>
                 </div>
                 <div className="hidden xs:flex items-center gap-4 text-gray-400">
@@ -142,13 +144,14 @@ export const MeetingPage: React.FC = () => {
           </div>
 
           {/* Right Panel: Conditional Rendering */}
-          <div className={`fixed inset-0 z-40 lg:relative lg:inset-auto lg:z-0 lg:w-80 xl:w-96 transition-transform duration-300 transform ${activePanel !== 'transcript' && 'translate-x-full lg:translate-x-0'} ${activePanel === 'transcript' ? 'translate-x-0' : 'translate-x-full lg:hidden hidden lg:block'}`}>
+          <div className={`fixed inset-y-0 right-0 z-40 w-full sm:w-96 lg:relative lg:inset-auto lg:z-0 lg:w-80 xl:w-96 transition-transform duration-300 transform ${activePanel === 'transcript' ? 'translate-x-0' : 'translate-x-full lg:hidden hidden lg:block'}`}>
              <div className="h-full bg-white lg:bg-transparent lg:border-none shadow-2xl lg:shadow-none">
                 {activePanel === 'transcript' && (
                    <TranscriptSidebar 
                        transcript={transcript}
                        clearTranscript={clearTranscript}
                        acousticFeatures={acousticFeatures}
+                       onClose={() => setActivePanel(null)}
                    />
                 )}
              </div>
@@ -156,7 +159,7 @@ export const MeetingPage: React.FC = () => {
 
           {/* New Interactive Panels (Dummy Implementations) */}
           {activePanel === 'participants' && (
-            <div className="fixed inset-y-0 right-0 w-80 sm:w-96 bg-white shadow-2xl z-50 p-6 flex flex-col border-l border-gray-100">
+            <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 p-4 sm:p-6 flex flex-col border-l border-gray-100 animate-in slide-in-from-right duration-300">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-lg font-bold text-gray-900">Participants <span className="ml-2 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-xs">{participants.length}</span></h2>
                 <button onClick={() => setActivePanel('transcript')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"><LayoutGrid size={20} /></button>
@@ -199,7 +202,7 @@ export const MeetingPage: React.FC = () => {
           )}
 
           {activePanel === 'security' && (
-             <div className="fixed inset-y-0 right-0 w-80 sm:w-96 bg-white shadow-2xl z-50 p-6 flex flex-col border-l border-gray-100">
+             <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 p-6 flex flex-col border-l border-gray-100">
                 <div className="flex items-center justify-between mb-8">
                   <h2 className="text-lg font-bold text-gray-900">Security</h2>
                   <button onClick={() => setActivePanel('transcript')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"><LayoutGrid size={20} /></button>
@@ -227,7 +230,7 @@ export const MeetingPage: React.FC = () => {
           )}
 
           {activePanel === 'settings' && (
-             <div className="fixed inset-y-0 right-0 w-80 sm:w-96 bg-white shadow-2xl z-50 p-6 flex flex-col border-l border-gray-100">
+             <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 p-6 flex flex-col border-l border-gray-100">
                 <div className="flex items-center justify-between mb-8">
                   <h2 className="text-lg font-bold text-gray-900">Settings</h2>
                   <button onClick={() => setActivePanel('transcript')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"><LayoutGrid size={20} /></button>
@@ -312,17 +315,26 @@ export const MeetingPage: React.FC = () => {
             toggleMic={toggleMic}
             isVideoOff={isVideoOff}
             toggleVideo={toggleVideo}
-            logout={logout}
+            logout={() => setIsMeetingEnded(true)}
         />
+
+        {isMeetingEnded && (
+          <EndOfMeetingSummary 
+            meetingId={user?.meetingId || ''}
+            duration={formatTime(sessionTime)}
+            participantCount={participants.length}
+            onExit={logout}
+          />
+        )}
         
         {/* Mobile Navbar Overlay (Conditional for Mobile) */}
         <div className="sm:hidden fixed bottom-24 left-4 right-4 bg-white/90 backdrop-blur-md rounded-2xl border border-white/20 p-2 shadow-2xl z-50 flex items-center justify-around">
-            <button onClick={() => setActivePanel('transcript')} className={`p-4 rounded-xl ${activePanel === 'transcript' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><LayoutGrid size={20} /></button>
-            <button onClick={() => setActivePanel('participants')} className={`p-4 rounded-xl ${activePanel === 'participants' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Users size={20} /></button>
-            <button onClick={() => setActivePanel('chat')} className={`p-4 rounded-xl ${activePanel === 'chat' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><MessageSquare size={20} /></button>
-            <button onClick={() => setActivePanel('intelligence')} className={`p-4 rounded-xl ${activePanel === 'intelligence' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400'}`}><Sparkles size={20} /></button>
-            <button onClick={() => setActivePanel('security')} className={`p-4 rounded-xl ${activePanel === 'security' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Shield size={20} /></button>
-            <button onClick={() => setActivePanel('settings')} className={`p-4 rounded-xl ${activePanel === 'settings' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Settings size={20} /></button>
+            <button onClick={() => setActivePanel(activePanel === 'transcript' ? null : 'transcript')} className={`p-4 rounded-xl ${activePanel === 'transcript' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><LayoutGrid size={20} /></button>
+            <button onClick={() => setActivePanel(activePanel === 'participants' ? null : 'participants')} className={`p-4 rounded-xl ${activePanel === 'participants' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Users size={20} /></button>
+            <button onClick={() => setActivePanel(activePanel === 'chat' ? null : 'chat')} className={`p-4 rounded-xl ${activePanel === 'chat' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><MessageSquare size={20} /></button>
+            <button onClick={() => setActivePanel(activePanel === 'intelligence' ? null : 'intelligence')} className={`p-4 rounded-xl ${activePanel === 'intelligence' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400'}`}><Sparkles size={20} /></button>
+            <button onClick={() => setActivePanel(activePanel === 'security' ? null : 'security')} className={`p-4 rounded-xl ${activePanel === 'security' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Shield size={20} /></button>
+            <button onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')} className={`p-4 rounded-xl ${activePanel === 'settings' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Settings size={20} /></button>
         </div>
       </div>
     </div>

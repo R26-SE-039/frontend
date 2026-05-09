@@ -31,6 +31,46 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ meetingId,
     }
   };
 
+  const handleGenerateStories = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      // 1. Fetch the actual transcript from the meeting
+      const response = await meetingApi.getTranscript(meetingId);
+      
+      // 2. Transform into structured RAG payload
+      const formattedTranscript = {
+        transcript_id: meetingId,
+        source: 'meeting_record',
+        utterances: response.transcript.map((u: any) => ({
+          speaker: u.speaker || 'Unknown',
+          text: u.text,
+          timestamp_start: u.timestamp_start || 0,
+          timestamp_end: u.timestamp_end || 0
+        }))
+      };
+
+      // 3. Pass it to the RAG service
+      const ragData = await meetingApi.generateUserStories(formattedTranscript);
+      
+      if (ragData.stories && ragData.stories.length > 0) {
+        // Format stories for display
+        const formatted = ragData.stories.map((s: any) => 
+          `**${s.title}**\n${s.story}\n\n*Acceptance Criteria:*\n${s.acceptance_criteria.map((c: string) => `- ${c}`).join('\n')}`
+        ).join('\n\n---\n\n');
+        setResult(formatted);
+      } else {
+        setError('No user stories were generated from this meeting.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate stories');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const copyToClipboard = () => {
     if (result) {
       navigator.clipboard.writeText(result);
@@ -39,7 +79,7 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ meetingId,
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-80 sm:w-96 bg-white shadow-2xl z-50 p-6 flex flex-col border-l border-gray-100 animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 p-4 sm:p-6 flex flex-col border-l border-gray-100 animate-in slide-in-from-right duration-300">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
@@ -72,6 +112,18 @@ export const IntelligencePanel: React.FC<IntelligencePanelProps> = ({ meetingId,
               <span className="text-sm font-bold text-indigo-900">Extract Action Items</span>
             </div>
             {loading ? <Loader2 size={16} className="text-indigo-600 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-indigo-400" />}
+          </button>
+
+          <button
+            disabled={loading}
+            onClick={handleGenerateStories}
+            className="w-full group flex items-center justify-between p-4 rounded-2xl border border-purple-100 bg-purple-50/30 hover:bg-purple-50 transition-all text-left disabled:opacity-50"
+          >
+            <div className="flex items-center gap-3">
+              <Sparkles size={18} className="text-purple-600" />
+              <span className="text-sm font-bold text-purple-900">Generate User Stories</span>
+            </div>
+            {loading ? <Loader2 size={16} className="text-purple-600 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-purple-400" />}
           </button>
         </section>
 

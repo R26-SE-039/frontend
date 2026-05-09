@@ -11,7 +11,7 @@ interface AuthPromoProps {
 
 export const AuthPromo: React.FC<AuthPromoProps> = ({ activeTab, joinImage, createImage, className = "" }) => {
     return (
-        <div className={`flex-1 relative hidden md:block overflow-hidden transition-all duration-700 bg-gray-50 h-screen ${className || (activeTab === 'create' ? 'md:order-1' : 'md:order-2')}`}>
+        <div className={`flex-1 relative hidden lg:block overflow-hidden transition-all duration-700 bg-gray-50 h-screen ${className || (activeTab === 'create' ? 'lg:order-1' : 'lg:order-2')}`}>
             <AnimatePresence mode="wait">
                 <motion.div 
                     key={activeTab}

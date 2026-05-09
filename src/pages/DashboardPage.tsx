@@ -97,7 +97,7 @@ export const DashboardPage: React.FC = () => {
 
       {/* Interactive Column (Right) */}
       <div className="flex-1 flex flex-col justify-center bg-white order-2 relative">
-        <div className={`${currentView === 'file-rag' ? 'max-w-[1000px]' : 'max-w-[600px]'} w-full mx-auto px-8 py-12 sm:px-12 sm:py-16 flex flex-col min-h-full transition-all duration-500`}>
+        <div className={`${currentView === 'file-rag' ? 'max-w-5xl' : 'max-w-xl lg:max-w-[600px]'} w-full mx-auto px-4 py-8 sm:px-12 sm:py-16 flex flex-col min-h-full transition-all duration-500`}>
 
           <div className="space-y-10">
             {/* Header Branding */}

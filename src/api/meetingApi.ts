@@ -1,4 +1,4 @@
-import { SESSION_API_URL } from './config';
+import { SESSION_API_URL, RAG_API_URL } from './config';
 import { useMeetingStore } from '../store/useMeetingStore';
 
 const getAuthHeaders = () => {
@@ -54,13 +54,17 @@ export const meetingApi = {
   },
 
   getChatHistory: async (meetingId: string) => {
-    const response = await fetch(`${SESSION_API_URL}/meeting/${meetingId}/chats`);
+    const response = await fetch(`${SESSION_API_URL}/meeting/${meetingId}/chats`, {
+      headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch chat history');
     return response.json();
   },
 
   getTranscript: async (meetingId: string) => {
-    const response = await fetch(`${SESSION_API_URL}/meeting/${meetingId}/transcript`);
+    const response = await fetch(`${SESSION_API_URL}/meeting/${meetingId}/transcript`, {
+      headers: getAuthHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch transcript');
     return response.json();
   },
@@ -72,6 +76,26 @@ export const meetingApi = {
       body: JSON.stringify({ type }),
     });
     if (!response.ok) throw new Error('Failed to analyze meeting');
+    return response.json();
+  },
+
+  generateUserStories: async (transcript: any, query: string = "Generate user stories based on this meeting transcript") => {
+    const response = await fetch(`${RAG_API_URL}/pipeline/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transcript,
+        query,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to generate user stories from RAG service');
+    }
+
     return response.json();
   },
 };

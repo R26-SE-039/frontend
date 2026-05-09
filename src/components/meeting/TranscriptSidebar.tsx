@@ -1,15 +1,16 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, MoreVertical, Mic, Send, Activity } from 'lucide-react';
+import { MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight } from 'lucide-react';
 import { TranscriptEntry } from '../../store/useMeetingStore';
 
 interface TranscriptSidebarProps {
     transcript: TranscriptEntry[];
     clearTranscript: () => void;
     acousticFeatures?: { pitch: number; energy: number };
+    onClose?: () => void;
 }
 
-export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript, clearTranscript, acousticFeatures }) => {
+export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript, clearTranscript, acousticFeatures, onClose }) => {
     const transcriptEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -33,6 +34,14 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                     >
                         <MoreVertical size={20} />
                     </button>
+                    {onClose && (
+                      <button 
+                        onClick={onClose}
+                        className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors ml-1"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    )}
                 </div>
 
                 {/* Integrated Acoustics Analysis */}
