@@ -6,6 +6,9 @@ import { useMeetingStore } from './store/useMeetingStore';
 
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectDashboard } from './pages/ProjectDashboard';
+import { AcceptInvitePage } from './pages/AcceptInvitePage';
+import { OrganizationSettingsPage } from './pages/OrganizationSettingsPage';
+import { ProjectDetailPage } from './pages/ProjectDetailPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useMeetingStore();
@@ -35,6 +38,23 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/projects/:id"
+            element={
+              <ProtectedRoute>
+                <ProjectDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/organization"
+            element={
+              <ProtectedRoute>
+                <OrganizationSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route
             path="/meeting/:id"
             element={

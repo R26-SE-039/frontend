@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMeetingStore, Project } from '../store/useMeetingStore';
-import { InviteModal } from '../components/project/InviteModal';
 import { CreateProjectModal } from '../components/project/CreateProjectModal';
 import { ProjectCard } from '../components/project/ProjectCard';
 import { ProjectListItem } from '../components/project/ProjectListItem';
@@ -23,7 +22,6 @@ export const ProjectDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isCreating, setIsCreating] = useState(false);
-  const [invitingProject, setInvitingProject] = useState<Project | null>(null);
 
   useEffect(() => {
     fetchProjects();
@@ -49,14 +47,6 @@ export const ProjectDashboard: React.FC = () => {
   const handleCreateProject = async (name: string, description: string, invitedEmails: string[]) => {
     try {
       const project = await projectApi.createProject({ name, description });
-      
-      // Send invitations in background
-      if (invitedEmails.length > 0) {
-        Promise.all(invitedEmails.map(email => 
-          projectApi.inviteMember(project.id, email, 'Editor')
-        )).catch(err => console.error('Failed to send some invitations:', err));
-      }
-
       handleSelectProject(project);
     } catch (error) {
       console.error('Failed to create project:', error);
@@ -79,7 +69,7 @@ export const ProjectDashboard: React.FC = () => {
         <div className="flex flex-col gap-6 flex-grow">
           <button className="p-3 bg-blue-700 text-white rounded-xl shadow-sm"><Grid size={20} /></button>
           <button className="p-3 text-blue-200 hover:text-white transition-colors"><Users size={20} /></button>
-          <button className="p-3 text-blue-200 hover:text-white transition-colors"><Settings size={20} /></button>
+          <button onClick={() => navigate('/settings/organization')} className="p-3 text-blue-200 hover:text-white transition-colors"><Settings size={20} /></button>
         </div>
         <button 
           onClick={logout}
@@ -187,7 +177,7 @@ export const ProjectDashboard: React.FC = () => {
                         project={project}
                         idx={idx}
                         onSelect={handleSelectProject}
-                        onInvite={setInvitingProject}
+                        onInvite={() => navigate(`/projects/${project.id}`)}
                       />
                     ))}
                   </motion.div>
@@ -236,15 +226,7 @@ export const ProjectDashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Invitation Modal */}
-      <AnimatePresence>
-        {invitingProject && (
-          <InviteModal 
-            projectName={invitingProject.name} 
-            onClose={() => setInvitingProject(null)} 
-          />
-        )}
-      </AnimatePresence>
+      {/* Invitation Modal removed, handled via project details page now */}
     </div>
   );
 };

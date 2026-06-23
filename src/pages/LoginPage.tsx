@@ -12,10 +12,10 @@ const PROMO_IMAGE_CREATE = "/images/ai_transcription_promo_1775519960749.png";
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [agileRole, setAgileRole] = useState('Developer');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [roles, setRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,16 +27,6 @@ export const LoginPage: React.FC = () => {
     if (user) {
       navigate('/projects');
     }
-
-    const fetchRoles = async () => {
-      try {
-        const data = await authApi.getRoles();
-        setRoles(data.roles);
-      } catch (err) {
-        console.error("Failed to fetch roles");
-      }
-    };
-    fetchRoles();
   }, [user, navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -46,7 +36,7 @@ export const LoginPage: React.FC = () => {
 
     const validationData = authMode === 'login' 
       ? { email, password } 
-      : { email, password, fullName, agileRole };
+      : { email, password, firstName, lastName, companyName };
     
     const schema = authMode === 'login' ? loginSchema : registerSchema;
     const result = validateForm(schema, validationData);
@@ -62,15 +52,20 @@ export const LoginPage: React.FC = () => {
       if (authMode === 'login') {
         data = await authApi.login(email, password);
       } else {
-        data = await authApi.register(email, password, fullName, agileRole);
+        data = await authApi.register(email, password, firstName, lastName, companyName);
       }
 
       setUser({
         id: data.user.id,
-        name: data.user.full_name,
+        name: data.user.firstName + ' ' + data.user.lastName,
         email: data.user.email,
-        agileRole: data.user.agile_role,
-        accessToken: data.access_token,
+        agileRole: data.user.role || 'Member',
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        firstName: data.user.firstName,
+        lastName: data.user.lastName,
+        organizationId: data.user.organizationId,
+        role: data.user.role,
         meetingId: ''
       });
 
@@ -121,13 +116,40 @@ export const LoginPage: React.FC = () => {
               )}
 
               {authMode === 'register' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">First Name</label>
+                    <input 
+                      type="text" 
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="John" 
+                      className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 px-4 outline-none focus:bg-white focus:border-[#0E71EB] transition-all text-sm font-medium"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Last Name</label>
+                    <input 
+                      type="text" 
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe" 
+                      className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 px-4 outline-none focus:bg-white focus:border-[#0E71EB] transition-all text-sm font-medium"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {authMode === 'register' && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Company Name</label>
                   <input 
                     type="text" 
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="John Doe" 
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Acme Corp" 
                     className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 px-4 outline-none focus:bg-white focus:border-[#0E71EB] transition-all text-sm font-medium"
                     required
                   />
@@ -158,18 +180,7 @@ export const LoginPage: React.FC = () => {
                 />
               </div>
 
-              {authMode === 'register' && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Agile Role</label>
-                  <select 
-                    value={agileRole}
-                    onChange={(e) => setAgileRole(e.target.value)}
-                    className="w-full bg-gray-50 border border-transparent rounded-xl py-3.5 px-4 outline-none focus:bg-white focus:border-[#0E71EB] transition-all text-sm font-medium"
-                  >
-                    {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-              )}
+              {/* Agile Role removed for registration */}
 
               <button 
                 type="submit"

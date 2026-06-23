@@ -54,14 +54,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, idx, onSelect
       <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
         <div className="flex items-center gap-3">
           <div className="flex -space-x-1.5">
-            {[...Array(Math.min(3, project.memberCount))].map((_, i) => (
+            {[...Array(Math.min(3, project.memberCount || 0))].map((_, i) => (
               <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 uppercase">
                 {String.fromCharCode(65 + i)}
               </div>
             ))}
-            {project.memberCount > 3 && (
+            {(project.memberCount || 0) > 3 && (
               <div className="w-6 h-6 rounded-full border-2 border-white bg-slate-50 flex items-center justify-center text-[7px] font-bold text-slate-400">
-                +{project.memberCount - 3}
+                +{(project.memberCount || 0) - 3}
               </div>
             )}
           </div>

@@ -33,7 +33,7 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({ project, onSel
       <td className="px-6 py-4">
         <div className="flex items-center gap-2">
           <Users size={14} className="text-slate-400" />
-          <span className="text-xs font-bold text-slate-600">{project.memberCount} members</span>
+          <span className="text-xs font-bold text-slate-600">{project.memberCount || 0} members</span>
         </div>
       </td>
       <td className="px-6 py-4">

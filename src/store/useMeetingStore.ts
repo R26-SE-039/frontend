@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { authApi } from '../api/authApi';
 
 // Types for the store
 export type ThemeType = 'default' | 'obsidian' | 'ocean' | 'light';
@@ -28,6 +29,11 @@ export interface User {
   meetingId: string;
   agileRole: string;
   accessToken: string;
+  firstName?: string;
+  lastName?: string;
+  organizationId?: string;
+  role?: string;
+  refreshToken?: string;
 }
 
 export interface Project {
@@ -55,7 +61,7 @@ interface MeetingState {
   currentProject: Project | null;
   setUser: (user: User) => void;
   setCurrentProject: (project: Project | null) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 
   // Appearance
   theme: ThemeType;
@@ -131,10 +137,18 @@ export const useMeetingStore = create<MeetingState>()(
         }));
       },
       setCurrentProject: (currentProject) => set({ currentProject }),
-      logout: () => {
+      logout: async () => {
+        const token = get().user?.accessToken;
         set({ user: null, currentProject: null });
         // Clear all state on logout
         localStorage.removeItem('meeting-storage');
+        if (token) {
+          try {
+            await authApi.logout(token);
+          } catch (e) {
+            console.error('Logout API failed:', e);
+          }
+        }
       },
       setTheme: (theme) => set({ theme }),
       setGridDensity: (gridDensity) => set({ gridDensity }),

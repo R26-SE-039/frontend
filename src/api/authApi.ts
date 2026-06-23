@@ -10,75 +10,67 @@ export const authApi = {
 
     if (!response.ok) {
       const error = await response.json();
-      const message = Array.isArray(error.detail)
-        ? error.detail.map((e: any) => e.message).join(', ')
-        : (error.detail || 'Login failed');
-      throw new Error(message);
+      throw new Error(error.message || 'Login failed');
     }
 
     return response.json();
   },
 
-  register: async (email: string, password: string, fullName: string, agileRole: string) => {
+  register: async (email: string, password: string, firstName: string, lastName: string, companyName: string) => {
     const response = await fetch(`${AUTH_API_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name: fullName, agile_role: agileRole }),
+      body: JSON.stringify({ email, password, firstName, lastName, companyName }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      const message = Array.isArray(error.detail)
-        ? error.detail.map((e: any) => e.message).join(', ')
-        : (error.detail || 'Registration failed');
-      throw new Error(message);
+      throw new Error(error.message || 'Registration failed');
     }
 
     return response.json();
   },
 
-  getMe: async (token: string) => {
-    const response = await fetch(`${AUTH_API_URL}/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+  refreshToken: async (refreshToken: string) => {
+    const response = await fetch(`${AUTH_API_URL}/auth/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch user data');
+      throw new Error('Failed to refresh token');
     }
 
     return response.json();
   },
 
-  getRoles: async () => {
-    const response = await fetch(`${AUTH_API_URL}/auth/roles`);
-    if (!response.ok) throw new Error('Failed to fetch roles');
-    return response.json();
-  },
-
-  getProfile: async (token: string) => {
-    const response = await fetch(`${AUTH_API_URL}/auth/profile`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!response.ok) {
-      if (response.status === 404) return null; // Profile might not exist yet
-      throw new Error('Failed to fetch profile');
-    }
-    return response.json();
-  },
-
-  updateProfile: async (token: string, profile: any) => {
-    const response = await fetch(`${AUTH_API_URL}/auth/profile`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+  logout: async (token: string) => {
+    const response = await fetch(`${AUTH_API_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(profile),
     });
+
+    if (!response.ok) {
+      throw new Error('Logout failed');
+    }
+  },
+
+  acceptInvite: async (inviteToken: string, firstName: string, lastName: string, password: string) => {
+    const response = await fetch(`${AUTH_API_URL}/auth/accept-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviteToken, firstName, lastName, password }),
+    });
+
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Failed to update profile');
+      throw new Error(error.message || 'Failed to accept invite');
     }
+
     return response.json();
   }
 };

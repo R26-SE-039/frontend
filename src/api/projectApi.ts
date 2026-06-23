@@ -23,7 +23,19 @@ export const projectApi = {
     return response.json();
   },
 
-  createProject: async (data: { name: string; description: string; is_private?: boolean }): Promise<Project> => {
+  getProject: async (id: string): Promise<Project> => {
+    const response = await fetch(`${AUTH_API_URL}/projects/${id}`, {
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch project');
+    }
+
+    return response.json();
+  },
+
+  createProject: async (data: { name: string; description: string }): Promise<Project> => {
     const response = await fetch(`${AUTH_API_URL}/projects`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -37,17 +49,28 @@ export const projectApi = {
     return response.json();
   },
 
-  inviteMember: async (projectId: string, email: string, role: string): Promise<any> => {
-    const response = await fetch(`${AUTH_API_URL}/projects/${projectId}/invite`, {
-      method: 'POST',
+  updateProject: async (id: string, data: { name?: string; description?: string; status?: string }): Promise<Project> => {
+    const response = await fetch(`${AUTH_API_URL}/projects/${id}`, {
+      method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ email, role }),
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to send invitation');
+      throw new Error('Failed to update project');
     }
 
     return response.json();
+  },
+
+  deleteProject: async (id: string): Promise<void> => {
+    const response = await fetch(`${AUTH_API_URL}/projects/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete project');
+    }
   }
 };
