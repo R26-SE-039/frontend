@@ -4,7 +4,7 @@ import { InviteItem } from './InviteItem';
 
 interface MeetingHubViewProps {
   onJoin: (meetingId: string, passcode: string) => Promise<void>;
-  onCreate: (mode: 'instant' | 'scheduled', date?: string, time?: string) => Promise<void>;
+  onCreate: (title: string, mode: 'instant' | 'scheduled', date?: string, time?: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
   isCreated: boolean;
@@ -26,6 +26,7 @@ export const MeetingHubView: React.FC<MeetingHubViewProps> = ({
   const [activeTab, setActiveTab] = useState<'join' | 'create'>('join');
   const [meetingId, setMeetingId] = useState('');
   const [passcode, setPasscode] = useState('');
+  const [title, setTitle] = useState('');
   const [mode, setMode] = useState<'instant' | 'scheduled'>('instant');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
@@ -37,7 +38,7 @@ export const MeetingHubView: React.FC<MeetingHubViewProps> = ({
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onCreate(mode, scheduledDate, scheduledTime);
+    onCreate(title, mode, scheduledDate, scheduledTime);
   };
 
   return (
@@ -162,6 +163,18 @@ export const MeetingHubView: React.FC<MeetingHubViewProps> = ({
       ) : (
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <form onSubmit={handleCreateSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Meeting Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Sprint Planning"
+                required
+                className="w-full bg-slate-50 border border-slate-100 rounded-lg py-2.5 px-3 outline-none focus:bg-white focus:border-blue-500 transition-all font-bold text-xs text-slate-900"
+              />
+            </div>
+            
             <div className="flex bg-slate-100 p-1 rounded-lg w-fit mx-auto">
               <button type="button" onClick={() => setMode('instant')} className={`px-5 py-1.5 rounded-md text-[8px] font-black uppercase tracking-widest transition-all ${mode === 'instant' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Instant</button>
               <button type="button" onClick={() => setMode('scheduled')} className={`px-5 py-1.5 rounded-md text-[8px] font-black uppercase tracking-widest transition-all ${mode === 'scheduled' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>Scheduled</button>

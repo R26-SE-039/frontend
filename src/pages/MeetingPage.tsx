@@ -6,6 +6,7 @@ import {
 
 import { useMeetingStore } from '../store/useMeetingStore';
 import { useSpeechSocket } from '../hooks/useSpeechSocket';
+import { meetingApi } from '../api/meetingApi';
 
 // Internal Components
 import { MeetingHeader } from '../components/meeting/MeetingHeader';
@@ -317,7 +318,20 @@ export const MeetingPage: React.FC = () => {
             toggleMic={toggleMic}
             isVideoOff={isVideoOff}
             toggleVideo={toggleVideo}
-            logout={() => setIsMeetingEnded(true)}
+            onLeave={() => {
+              // Just leave the meeting locally
+              setIsMeetingEnded(true);
+            }}
+            onEnd={async () => {
+              if (user?.meetingId) {
+                try {
+                  await meetingApi.finalizeMeeting(user.meetingId);
+                } catch (err) {
+                  console.error('Failed to finalize meeting:', err);
+                }
+              }
+              setIsMeetingEnded(true);
+            }}
         />
 
         {isMeetingEnded && (

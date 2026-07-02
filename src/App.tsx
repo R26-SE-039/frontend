@@ -9,6 +9,7 @@ import { ProjectDashboard } from './pages/ProjectDashboard';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { OrganizationSettingsPage } from './pages/OrganizationSettingsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
+import { BacklogPage } from './pages/BacklogPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useMeetingStore();
@@ -43,6 +44,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProjectDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/backlog"
+            element={
+              <ProtectedRoute>
+                <BacklogPage />
               </ProtectedRoute>
             }
           />

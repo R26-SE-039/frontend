@@ -49,12 +49,12 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleCreate = async (mode: 'instant' | 'scheduled', date?: string, time?: string) => {
+  const handleCreate = async (title: string, mode: 'instant' | 'scheduled', date?: string, time?: string) => {
     setIsLoading(true);
     setError(null);
     try {
       const scheduledAt = mode === 'scheduled' ? `${date}T${time}` : undefined;
-      const data = await meetingApi.createMeeting(user.name + "'s Meeting", mode, scheduledAt);
+      const data = await meetingApi.createMeeting(title || (user.name + "'s Meeting"), mode, scheduledAt);
       setInviteDetails({ id: data.meeting_id, passcode: data.passcode, link: data.invite_link });
       setIsCreated(true);
     } catch (err: any) {

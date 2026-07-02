@@ -142,6 +142,15 @@ export const ProjectDetailPage: React.FC = () => {
             <button 
               onClick={() => {
                 useMeetingStore.getState().setCurrentProject(project);
+                navigate(`/projects/${id}/backlog`);
+              }}
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest shadow-md shadow-indigo-500/20 hover:bg-indigo-700 transition-all"
+            >
+              Open Backlog
+            </button>
+            <button 
+              onClick={() => {
+                useMeetingStore.getState().setCurrentProject(project);
                 navigate('/dashboard');
               }}
               className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest shadow-md shadow-blue-500/20 hover:bg-blue-700 transition-all"

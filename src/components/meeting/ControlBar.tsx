@@ -6,10 +6,11 @@ interface ControlBarProps {
     toggleMic: () => void;
     isVideoOff: boolean;
     toggleVideo: () => void;
-    logout: () => void;
+    onLeave: () => void;
+    onEnd: () => void;
 }
 
-export const ControlBar: React.FC<ControlBarProps> = ({ isMuted, toggleMic, isVideoOff, toggleVideo, logout }) => {
+export const ControlBar: React.FC<ControlBarProps> = ({ isMuted, toggleMic, isVideoOff, toggleVideo, onLeave, onEnd }) => {
     return (
         <footer className="h-20 sm:h-24 bg-white border-t border-gray-200 flex items-center justify-center relative z-20 px-4 sm:px-10 shadow-[0_-5px_20px_rgb(0,0,0,0.02)]">
             <div className="flex items-center gap-1 sm:gap-3">
@@ -43,13 +44,22 @@ export const ControlBar: React.FC<ControlBarProps> = ({ isMuted, toggleMic, isVi
 
                 <div className="w-px h-10 bg-gray-200 mx-1 xs:mx-2 hidden sm:block" />
                 
-                <button 
-                    onClick={logout}
-                    className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-4 sm:px-8 h-12 sm:h-16 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white transition-all active:scale-95 shadow-lg shadow-rose-600/20"
-                >
-                    <PhoneOff size={18} />
-                    <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Leave</span>
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={onLeave}
+                        className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 h-12 sm:h-16 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white transition-all active:scale-95 shadow-lg shadow-orange-500/20"
+                    >
+                        <PhoneOff size={16} />
+                        <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Leave</span>
+                    </button>
+                    <button 
+                        onClick={onEnd}
+                        className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 h-12 sm:h-16 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white transition-all active:scale-95 shadow-lg shadow-rose-600/20"
+                    >
+                        <PhoneOff size={16} />
+                        <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">End</span>
+                    </button>
+                </div>
             </div>
 
             <div className="absolute right-6 sm:right-10 items-center gap-3 hidden md:flex">

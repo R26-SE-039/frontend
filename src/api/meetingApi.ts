@@ -1,4 +1,4 @@
-import { SESSION_API_URL, RAG_API_URL } from './config';
+import { RAG_API_URL } from './config';
 import { useMeetingStore } from '../store/useMeetingStore';
 
 const getAuthHeaders = () => {
@@ -27,7 +27,7 @@ export interface JoinMeetingResponse {
 export const meetingApi = {
   createMeeting: async (name: string, mode: 'instant' | 'scheduled', scheduledAt?: string): Promise<CreateMeetingResponse> => {
     const projectId = useMeetingStore.getState().currentProject?.id;
-    const response = await fetch(`${SESSION_API_URL}/meeting/create`, {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/create`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ 
@@ -46,7 +46,7 @@ export const meetingApi = {
   },
 
   joinMeeting: async (meetingId: string, passcode: string): Promise<JoinMeetingResponse> => {
-    const response = await fetch(`${SESSION_API_URL}/meeting/join`, {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/join`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ meeting_id: meetingId, passcode }),
@@ -60,7 +60,7 @@ export const meetingApi = {
   },
 
   getChatHistory: async (meetingId: string) => {
-    const response = await fetch(`${SESSION_API_URL}/meeting/${meetingId}/chats`, {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/chats`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch chat history');
@@ -68,7 +68,7 @@ export const meetingApi = {
   },
 
   getTranscript: async (meetingId: string) => {
-    const response = await fetch(`${SESSION_API_URL}/meeting/${meetingId}/transcript`, {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/transcript`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch transcript');
@@ -76,12 +76,21 @@ export const meetingApi = {
   },
 
   analyzeMeeting: async (meetingId: string, type: 'action_items' | 'summary' = 'action_items') => {
-    const response = await fetch(`${SESSION_API_URL}/meeting/${meetingId}/analyze`, {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/analyze`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ type }),
     });
     if (!response.ok) throw new Error('Failed to analyze meeting');
+    return response.json();
+  },
+
+  finalizeMeeting: async (meetingId: string) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/finalize`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to finalize meeting');
     return response.json();
   },
 

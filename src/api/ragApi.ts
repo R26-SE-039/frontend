@@ -12,13 +12,26 @@ export interface GeneratedStory {
   evidence_refs: string[];
 }
 
+export interface StoryIssue {
+  severity: 'high' | 'medium' | 'low';
+  issue: string;
+  recommendation: string;
+  context: string;
+}
+
 export interface PipelineRunResponse {
   transcript_id: string;
   indexed_chunks: number;
   query: string;
   stories: GeneratedStory[];
-  issues: any[];
+  issues: StoryIssue[];
   evidence_chunk_ids: string[];
+}
+
+export interface PipelineRunRequest {
+  transcript: any;
+  query?: string;
+  top_k?: number;
 }
 
 export const ragApi = {

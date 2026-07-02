@@ -4,7 +4,7 @@ import { useMeetingStore } from '../store/useMeetingStore';
 
 import { WS_BASE_URL } from '../api/config';
 
-const BASE_WS_URL = `${WS_BASE_URL}/ws`;
+const BASE_WS_URL = `${WS_BASE_URL}/speech/ws`;
 
 export interface TranscriptSegment {
     text: string;
