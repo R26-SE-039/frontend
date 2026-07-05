@@ -34,6 +34,7 @@ export const MeetingPage: React.FC = () => {
     participants,
     transcript, clearTranscript,
     chatMessages, clearChat,
+    requirements, clearRequirements,
     user, logout
   } = useMeetingStore();
 
@@ -144,6 +145,7 @@ export const MeetingPage: React.FC = () => {
                 {activePanel === 'transcript' && (
                    <TranscriptSidebar 
                        transcript={transcript}
+                       requirements={requirements}
                        clearTranscript={clearTranscript}
                        acousticFeatures={acousticFeatures}
                        onClose={() => setActivePanel(null)}

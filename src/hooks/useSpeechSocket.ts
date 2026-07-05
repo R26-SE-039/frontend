@@ -50,7 +50,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
 
     const { 
         user, addTranscriptEntry, isMuted, setParticipants, addChatMessage,
-        clearTranscript, clearChat 
+        clearTranscript, clearChat, addRequirements 
     } = useMeetingStore();
 
     // Refs to avoid stale closures in WS callbacks.
@@ -172,6 +172,9 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
                             isMe: data.sender === user?.name,
                         });
                         break;
+                    case 'requirements':
+                        addRequirements(data);
+                        break;
                     case 'error':
                         console.error('[WS] Backend error:', data.message);
                         break;
@@ -182,7 +185,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
         };
 
         wsRef.current = ws;
-    }, [user?.meetingId, addTranscriptEntry, clearTranscript, clearChat, setParticipants, addChatMessage]);
+    }, [user?.meetingId, addTranscriptEntry, clearTranscript, clearChat, setParticipants, addChatMessage, addRequirements]);
 
     // Connect WebSocket immediately on mount
     useEffect(() => {

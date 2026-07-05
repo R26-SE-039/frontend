@@ -22,6 +22,14 @@ export interface TranscriptEntry {
   isFinal?: boolean;
 }
 
+export interface RequirementEntry {
+  requirement_id: string;
+  meeting_id?: string;
+  requirement_text: string;
+  requirement_type: string;
+  status: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -105,6 +113,11 @@ interface MeetingState {
   chatMessages: ChatMessage[];
   addChatMessage: (msg: Omit<ChatMessage, 'id'>) => void;
   clearChat: () => void;
+
+  // Requirements
+  requirements: RequirementEntry[];
+  addRequirements: (reqs: RequirementEntry[]) => void;
+  clearRequirements: () => void;
 }
 
 export const useMeetingStore = create<MeetingState>()(
@@ -126,6 +139,7 @@ export const useMeetingStore = create<MeetingState>()(
       participants: [],
       transcript: [],
       chatMessages: [],
+      requirements: [],
 
       // Actions
       setUser: (user) => {
@@ -226,6 +240,15 @@ export const useMeetingStore = create<MeetingState>()(
       })),
 
       clearChat: () => set({ chatMessages: [] }),
+
+      addRequirements: (reqs) => set((state) => ({
+        requirements: [
+          ...state.requirements,
+          ...reqs.filter(r => !state.requirements.find(existing => existing.requirement_id === r.requirement_id))
+        ]
+      })),
+
+      clearRequirements: () => set({ requirements: [] }),
     }),
     {
       name: 'meeting-storage',
