@@ -25,31 +25,13 @@ export const MeetingStoryGenerator: React.FC<MeetingStoryGeneratorProps> = ({ me
     setStories(null);
 
     try {
-      // 1. Fetch the actual transcript from the meeting
-      const response = await meetingApi.getTranscript(meetingId);
-      const currentProject = useMeetingStore.getState().currentProject;
-      
-      // 2. Transform into structured RAG payload
-      // RAG service expects { transcript: { transcript_id, utterances: [...] }, query }
-      const formattedTranscript = {
-        transcript_id: meetingId,
-        project_id: currentProject?.id,
-        source: 'meeting_record',
-        utterances: response.transcript.map((u: any) => ({
-          speaker: u.speaker || 'Unknown',
-          text: u.text,
-          timestamp_start: u.timestamp_start || 0,
-          timestamp_end: u.timestamp_end || 0
-        }))
-      };
-
-      // 3. Pass it to the RAG service
-      const ragData = await meetingApi.generateUserStories(formattedTranscript);
+      // Pass it to the finalized requirements story generator endpoint
+      const ragData = await meetingApi.generateStoriesFromRequirements(meetingId);
       
       if (ragData.stories && ragData.stories.length > 0) {
         setStories(ragData.stories);
       } else {
-        setError('No user stories were generated from this meeting transcript.');
+        setError('No user stories were generated from this meeting\'s requirements.');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to generate stories');
