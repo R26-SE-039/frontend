@@ -98,9 +98,7 @@ export const meetingApi = {
     const projectId = useMeetingStore.getState().currentProject?.id;
     const response = await fetch(`${RAG_API_URL}/pipeline/run`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         transcript: { ...transcript, project_id: projectId },
         query,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { prepareAudioChunk } from '../utils/audioProcessor';
+import { createWorkletBlobUrl } from '../utils/audioWorkletProcessor';
 import { useMeetingStore } from '../store/useMeetingStore';
 
 import { WS_BASE_URL } from '../api/config';
@@ -33,7 +33,7 @@ export interface UseSpeechSocketReturn {
  * - Audio is sent as raw 16-bit PCM over the WebSocket.
  * - Transcription results come back as JSON.
  */
-export const useSpeechSocket = (): UseSpeechSocketReturn => {
+export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocketReturn => {
     const [isMicActive, setIsMicActive] = useState<boolean>(false);
     const [acousticFeatures, setAcousticFeatures] = useState<AcousticFeatures>({ pitch: 0, energy: 0 });
     const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -41,19 +41,48 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
     const wsRef = useRef<WebSocket | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const processorRef = useRef<ScriptProcessorNode | null>(null);
+    const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+    const workletBlobUrlRef = useRef<string | null>(null);
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastMeetingIdRef = useRef<string | null>(null);
     const heartbeatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const { 
         user, addTranscriptEntry, isMuted, setParticipants, addChatMessage,
         clearTranscript, clearChat 
     } = useMeetingStore();
 
+    // Refs to avoid stale closures in WS callbacks.
+    // isMutedRef is initialized with live value (not hardcoded true) so it's
+    // correct even if the store has a non-default value on first render.
+    const isMutedRef = useRef<boolean>(isMuted);
+    const startMicRef = useRef<() => Promise<void>>(async () => {});
+    const stopMicRef = useRef<() => void>(() => {});
+    const isMeetingEndedRef = useRef<boolean>(isMeetingEnded);
+
+    // Keep isMutedRef in sync so ws.onopen can read current value without stale closure
+    useEffect(() => {
+        isMutedRef.current = isMuted;
+    }, [isMuted]);
+
+    useEffect(() => {
+        isMeetingEndedRef.current = isMeetingEnded;
+        if (isMeetingEnded) {
+            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+            if (wsRef.current) {
+                wsRef.current.onclose = null; // Prevent reconnect
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+            setIsConnected(false);
+            stopMicRef.current(); // Stop the microphone and AudioWorklet
+        }
+    }, [isMeetingEnded]);
+
     // ─── WebSocket: Connect on mount, auto-reconnect ───────────────
     const connectWebSocket = useCallback(() => {
-        if (!user?.meetingId) return;
+        if (!user?.meetingId || isMeetingEndedRef.current) return;
         
         // If meeting ID changed, force close old connection and CLEAR LOCAL STATE
         if (lastMeetingIdRef.current !== user.meetingId) {
@@ -89,6 +118,12 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
                     ws.send(JSON.stringify({ type: 'ping' }));
                 }
             }, 30000); // 30 seconds
+
+            // Fix #3: Start mic only AFTER WS is confirmed open to prevent
+            // audio bytes being silently dropped during WS handshake.
+            if (!isMutedRef.current) {
+                startMicRef.current();
+            }
         };
 
         ws.onclose = () => {
@@ -97,10 +132,13 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
             if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
             
             // Auto-reconnect after 3 seconds
-            reconnectTimerRef.current = setTimeout(() => {
-                connectWebSocket();
-            }, 3000);
+            if (!isMeetingEndedRef.current) {
+                reconnectTimerRef.current = setTimeout(() => {
+                    connectWebSocket();
+                }, 3000);
+            }
         };
+
 
         ws.onerror = (error) => {
             console.error('[WS] Error:', error);
@@ -155,7 +193,8 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) wsRef.current.close();
         };
-    }, [connectWebSocket]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.meetingId]);
 
     // ─── Mic: Start/Stop audio streaming ──────────────────────────
     const startMic = useCallback(async () => {
@@ -175,35 +214,56 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
             });
             audioContextRef.current = audioContext;
 
+            // Force resume if browser started it in suspended state
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+
             const source = audioContext.createMediaStreamSource(stream);
             sourceRef.current = source;
             
-            const processor = audioContext.createScriptProcessor(4096, 1, 1);
-            processorRef.current = processor;
+            // Fix #4: Use AudioWorkletNode (modern replacement for deprecated ScriptProcessorNode).
+            // AudioWorklet runs in the audio thread and survives tab backgrounding.
+            const blobUrl = createWorkletBlobUrl();
+            workletBlobUrlRef.current = blobUrl;
+            await audioContext.audioWorklet.addModule(blobUrl);
 
-            processor.onaudioprocess = (event: AudioProcessingEvent) => {
+            const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+            workletNodeRef.current = workletNode;
+
+            // Receive PCM chunks from the audio thread and send over WebSocket
+            workletNode.port.onmessage = (event: MessageEvent) => {
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    const inputData = event.inputBuffer.getChannelData(0);
-                    const pcmChunk = prepareAudioChunk(inputData, audioContext.sampleRate);
-                    wsRef.current.send(pcmChunk);
+                    wsRef.current.send(event.data as ArrayBuffer);
                 }
             };
 
-            source.connect(processor);
-            processor.connect(audioContext.destination);
+            // Fix #5: Do not connect worklet directly to destination, or browser echo 
+            // cancellation will completely mute the mic to prevent feedback!
+            // Instead, connect to a muted GainNode.
+            const gainNode = audioContext.createGain();
+            gainNode.gain.value = 0;
+            
+            source.connect(workletNode);
+            workletNode.connect(gainNode);
+            gainNode.connect(audioContext.destination);
             
             setIsMicActive(true);
-            console.log('[Mic] 🎙️ Unmuted — streaming audio');
+            console.log('[Mic] 🎤 Unmuted — streaming audio (AudioWorklet)');
         } catch (err) {
             console.error('[Mic] Error accessing microphone:', err);
         }
     }, []);
 
     const stopMic = useCallback(() => {
-        if (processorRef.current) {
-            processorRef.current.disconnect();
-            processorRef.current.onaudioprocess = null;
-            processorRef.current = null;
+        if (workletNodeRef.current) {
+            workletNodeRef.current.port.onmessage = null;
+            workletNodeRef.current.disconnect();
+            workletNodeRef.current = null;
+        }
+        if (workletBlobUrlRef.current) {
+            URL.revokeObjectURL(workletBlobUrlRef.current);
+            workletBlobUrlRef.current = null;
         }
         if (sourceRef.current) {
             sourceRef.current.disconnect();
@@ -222,30 +282,35 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
         console.log('[Mic] 🔇 Muted — audio stream stopped');
     }, []);
 
-    // Toggle mic on/off
-    const toggleMic = useCallback(async () => {
-        if (isMicActive) {
-            stopMic();
-        } else {
-            await startMic();
-        }
-    }, [isMicActive, startMic, stopMic]);
+    // Update startMicRef synchronously during render (not in useEffect) so it is
+    // always current before connectWebSocket's ws.onopen fires, even on fast LAN.
+    // startMic has [] deps so it is a stable reference — this assignment is cheap.
+    startMicRef.current = startMic;
+    stopMicRef.current = stopMic;
 
-    // Sync hardware mic with global isMuted state
+    // Fix #2: Sync hardware mic with global isMuted state.
+    // Only depends on `isMuted` — startMic/stopMic are stable ([] deps) so omitting
+    // them from the dep array is safe and prevents re-fire loops.
     useEffect(() => {
         if (!isMuted) {
-            startMic();
+            // Only start mic if WebSocket is already open.
+            // If WS is not yet open, ws.onopen will start the mic on connection.
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                startMic();
+            }
         } else {
             stopMic();
         }
-    }, [isMuted, startMic, stopMic]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isMuted]);
 
     // Cleanup mic on unmount
     useEffect(() => {
         return () => {
             stopMic();
         };
-    }, [stopMic]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const sendChat = useCallback((text: string) => {
         if (!text.trim()) return;
@@ -261,10 +326,12 @@ export const useSpeechSocket = (): UseSpeechSocketReturn => {
     }, [user?.name]);
 
     return {
-        isMicActive: !isMuted,
+        isMicActive,
         isConnected,
         acousticFeatures,
-        toggleMic: async () => { /* Now handled by store toggle */ },
+        // toggleMic is a no-op — mic is controlled by isMuted in the store.
+        // Call useMeetingStore().toggleMic() from the UI to mute/unmute.
+        toggleMic: async () => {},
         sendChat,
     };
 };

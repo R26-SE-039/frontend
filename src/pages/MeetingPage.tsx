@@ -37,15 +37,7 @@ export const MeetingPage: React.FC = () => {
     user, logout
   } = useMeetingStore();
 
-  const { isConnected, isMicActive, toggleMic: toggleHardwareMic, acousticFeatures, sendChat } = useSpeechSocket();
-
-  // Sync Global State with Hardware State
-  useEffect(() => {
-    const shouldBeActive = !isMuted;
-    if (shouldBeActive !== isMicActive) {
-      toggleHardwareMic();
-    }
-  }, [isMuted, isMicActive, toggleHardwareMic]);
+  const { isConnected, acousticFeatures, sendChat } = useSpeechSocket(isMeetingEnded);
 
   // Meeting Timer Logic
   const [sessionTime, setSessionTime] = React.useState(0);
