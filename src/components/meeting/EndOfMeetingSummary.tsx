@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, CheckCircle2, PhoneOff, ArrowRight, FileText, Share2 } from 'lucide-react';
 import { MeetingStoryGenerator } from './MeetingStoryGenerator';
+import { RequirementsFinalizer } from './RequirementsFinalizer';
 
 interface EndOfMeetingSummaryProps {
   meetingId: string;
@@ -16,6 +17,7 @@ export const EndOfMeetingSummary: React.FC<EndOfMeetingSummaryProps> = ({
   onExit 
 }) => {
   const [showStories, setShowStories] = useState(false);
+  const [showFinalizer, setShowFinalizer] = useState(false);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -46,7 +48,7 @@ export const EndOfMeetingSummary: React.FC<EndOfMeetingSummaryProps> = ({
             <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Recommended Next Steps</h3>
             
             <button 
-              onClick={() => setShowStories(true)}
+              onClick={() => setShowFinalizer(true)}
               className="w-full group flex items-center justify-between p-4 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200 transition-all hover:bg-indigo-700 active:scale-95"
             >
               <div className="flex items-center gap-3">
@@ -54,8 +56,8 @@ export const EndOfMeetingSummary: React.FC<EndOfMeetingSummaryProps> = ({
                   <Sparkles size={20} />
                 </div>
                 <div className="text-left">
-                  <p className="font-bold text-sm">Generate User Stories</p>
-                  <p className="text-white/60 text-[10px] font-medium">AI-powered agile extraction</p>
+                  <p className="font-bold text-sm">Review & Finalize Req's</p>
+                  <p className="text-white/60 text-[10px] font-medium">Resolve conflicts & generate stories</p>
                 </div>
               </div>
               <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
@@ -82,6 +84,17 @@ export const EndOfMeetingSummary: React.FC<EndOfMeetingSummaryProps> = ({
           </button>
         </div>
       </div>
+
+      {showFinalizer && (
+        <RequirementsFinalizer
+          meetingId={meetingId}
+          onBack={() => setShowFinalizer(false)}
+          onFinalized={() => {
+            setShowFinalizer(false);
+            setShowStories(true);
+          }}
+        />
+      )}
 
       {showStories && (
         <MeetingStoryGenerator 

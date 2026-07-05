@@ -98,9 +98,7 @@ export const meetingApi = {
     const projectId = useMeetingStore.getState().currentProject?.id;
     const response = await fetch(`${RAG_API_URL}/pipeline/run`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         transcript: { ...transcript, project_id: projectId },
         query,
@@ -112,6 +110,45 @@ export const meetingApi = {
       throw new Error(errorData.detail || 'Failed to generate user stories from RAG service');
     }
 
+    return response.json();
+  },
+
+  getRequirements: async (meetingId: string) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/requirements`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch requirements');
+    return response.json();
+  },
+
+  getConflicts: async (meetingId: string) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/conflicts`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch conflicts');
+    return response.json();
+  },
+
+  finalizeRequirements: async (meetingId: string, resolutions: any[], editedRequirements: any[]) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/requirements/finalize`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ resolutions, edited_requirements: editedRequirements }),
+    });
+    if (!response.ok) throw new Error('Failed to finalize requirements');
+    return response.json();
+  },
+
+  generateStoriesFromRequirements: async (meetingId: string) => {
+    const response = await fetch(`${RAG_API_URL}/pipeline/generate-from-requirements`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ meeting_id: meetingId }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to generate user stories from requirements');
+    }
     return response.json();
   },
 };
