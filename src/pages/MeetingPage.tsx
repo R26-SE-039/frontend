@@ -35,6 +35,7 @@ export const MeetingPage: React.FC = () => {
     transcript, clearTranscript,
     chatMessages, clearChat,
     requirements, clearRequirements,
+    conflicts,
     user, logout
   } = useMeetingStore();
 
@@ -127,9 +128,18 @@ export const MeetingPage: React.FC = () => {
             {/* Conflict Detection (Context Bar) */}
             <div className="h-14 sm:h-16 bg-white border border-gray-100 rounded-2xl px-4 flex items-center justify-between shadow-sm flex-shrink-0 overflow-x-auto no-scrollbar">
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] sm:text-xs font-bold whitespace-nowrap">
-                        <Shield size={14} /> Conflict Detection: <span className="text-gray-900 ml-1 italic font-medium">No conflict detect yet</span>
-                    </div>
+                    {conflicts.length === 0 ? (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] sm:text-xs font-bold whitespace-nowrap">
+                            <Shield size={14} /> Conflict Detection: <span className="text-gray-900 ml-1 italic font-medium">No conflict detected yet</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200 text-[10px] sm:text-xs font-bold whitespace-nowrap animate-pulse">
+                            <Shield size={14} /> {conflicts.length} Conflict{conflicts.length > 1 ? 's' : ''} Detected
+                            <span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[9px]">
+                                {conflicts.filter(c => c.severity === 'high').length} HIGH
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <div className="hidden xs:flex items-center gap-4 text-gray-400">
                     <button className="flex items-center gap-2 text-xs font-semibold hover:text-blue-600 transition-colors whitespace-nowrap"><Download size={16} /> Save Brief</button>
@@ -146,6 +156,7 @@ export const MeetingPage: React.FC = () => {
                    <TranscriptSidebar 
                        transcript={transcript}
                        requirements={requirements}
+                       conflicts={conflicts}
                        clearTranscript={clearTranscript}
                        acousticFeatures={acousticFeatures}
                        onClose={() => setActivePanel(null)}

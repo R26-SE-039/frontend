@@ -1,28 +1,58 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight, ListChecks } from 'lucide-react';
-import { TranscriptEntry, RequirementEntry } from '../../store/useMeetingStore';
+import { MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight, ListChecks, AlertTriangle } from 'lucide-react';
+import { TranscriptEntry, RequirementEntry, ConflictEntry } from '../../store/useMeetingStore';
 
 interface TranscriptSidebarProps {
     transcript: TranscriptEntry[];
     requirements?: RequirementEntry[];
+    conflicts?: ConflictEntry[];
     clearTranscript: () => void;
     acousticFeatures?: { pitch: number; energy: number };
     onClose?: () => void;
 }
 
-export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript, requirements = [], clearTranscript, acousticFeatures, onClose }) => {
+export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript, requirements = [], conflicts = [], clearTranscript, acousticFeatures, onClose }) => {
     const transcriptEndRef = useRef<HTMLDivElement>(null);
     const requirementsEndRef = useRef<HTMLDivElement>(null);
-    const [activeTab, setActiveTab] = useState<'transcript' | 'requirements'>('transcript');
+    const conflictsEndRef = useRef<HTMLDivElement>(null);
+    const [activeTab, setActiveTab] = useState<'transcript' | 'requirements' | 'conflicts'>('transcript');
 
     useEffect(() => {
         if (activeTab === 'transcript') {
             transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        } else {
+        } else if (activeTab === 'requirements') {
             requirementsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            conflictsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [transcript, requirements, activeTab]);
+    }, [transcript, requirements, conflicts, activeTab]);
+
+    const getTabIcon = () => {
+        if (activeTab === 'transcript') return <MessageSquare size={20} />;
+        if (activeTab === 'requirements') return <ListChecks size={20} />;
+        return <AlertTriangle size={20} />;
+    };
+
+    const getTabTitle = () => {
+        if (activeTab === 'transcript') return 'Transcription';
+        if (activeTab === 'requirements') return 'Requirements';
+        return 'Conflicts';
+    };
+
+    const getTabIconBg = () => {
+        if (activeTab === 'transcript') return 'bg-blue-50 text-blue-600';
+        if (activeTab === 'requirements') return 'bg-purple-50 text-purple-600';
+        return 'bg-red-50 text-red-600';
+    };
+
+    const getSeverityStyle = (severity: string) => {
+        switch (severity?.toLowerCase()) {
+            case 'high': return { badge: 'bg-red-100 text-red-600 border border-red-200', dot: 'bg-red-500', card: 'border-red-200 bg-red-50/30' };
+            case 'medium': return { badge: 'bg-orange-100 text-orange-600 border border-orange-200', dot: 'bg-orange-500', card: 'border-orange-200 bg-orange-50/30' };
+            default: return { badge: 'bg-yellow-100 text-yellow-600 border border-yellow-200', dot: 'bg-yellow-500', card: 'border-yellow-200 bg-yellow-50/30' };
+        }
+    };
 
     return (
         <aside className="w-full h-full lg:w-80 xl:w-96 flex flex-col gap-4">
@@ -30,11 +60,11 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                 <div className="p-4 border-b border-gray-100 flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${activeTab === 'transcript' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                                {activeTab === 'transcript' ? <MessageSquare size={20} /> : <ListChecks size={20} />}
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getTabIconBg()}`}>
+                                {getTabIcon()}
                             </div>
                             <div>
-                                <h2 className="font-bold text-gray-900 text-sm">{activeTab === 'transcript' ? 'Transcription' : 'Requirements'}</h2>
+                                <h2 className="font-bold text-gray-900 text-sm">{getTabTitle()}</h2>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Real-time Stream</p>
                             </div>
                         </div>
@@ -56,10 +86,10 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                         </div>
                     </div>
 
-                    <div className="flex bg-gray-100 p-1 rounded-xl">
+                    <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
                         <button
                             onClick={() => setActiveTab('transcript')}
-                            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                            className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg transition-all ${
                                 activeTab === 'transcript'
                                     ? 'bg-white text-blue-600 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700'
@@ -69,23 +99,37 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                         </button>
                         <button
                             onClick={() => setActiveTab('requirements')}
-                            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                            className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1 ${
                                 activeTab === 'requirements'
                                     ? 'bg-white text-purple-600 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
-                            Requirements
+                            Req's
                             {requirements.length > 0 && (
-                                <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full text-[10px]">
+                                <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full text-[9px]">
                                     {requirements.length}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('conflicts')}
+                            className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1 ${
+                                activeTab === 'conflicts'
+                                    ? 'bg-white text-red-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            Conflicts
+                            {conflicts.length > 0 && (
+                                <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full text-[9px] animate-pulse">
+                                    {conflicts.length}
                                 </span>
                             )}
                         </button>
                     </div>
                 </div>
 
-                {/* Integrated Acoustics Analysis */}
                 {acousticFeatures && (
                     <div className="mx-5 mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-100 space-y-3">
                         <div className="flex items-center gap-2 mb-1">
@@ -135,7 +179,6 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                     <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
                                         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><Mic size={32} className="text-gray-400" /></div>
                                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Listening for audio...</p>
-                                        <p className="text-[10px] text-gray-400 mt-2">Unmute your microphone to start the live transcription stream.</p>
                                     </div>
                                 ) : (
                                     transcript.map((entry) => (
@@ -158,7 +201,7 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 )}
                                 <div ref={transcriptEndRef} />
                             </motion.div>
-                        ) : (
+                        ) : activeTab === 'requirements' ? (
                             <motion.div 
                                 key="requirements-view"
                                 initial={{ opacity: 0 }}
@@ -170,7 +213,6 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                     <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
                                         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><ListChecks size={32} className="text-gray-400" /></div>
                                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Awaiting Requirements...</p>
-                                        <p className="text-[10px] text-gray-400 mt-2">Speak clearly about system features, and the AI will extract them here.</p>
                                     </div>
                                 ) : (
                                     requirements.map((req) => (
@@ -188,6 +230,11 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                                 }`}>
                                                     {req.requirement_type}
                                                 </span>
+                                                {req.status === 'conflicted' && (
+                                                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-500 flex items-center gap-1">
+                                                        <AlertTriangle size={9} /> Conflicted
+                                                    </span>
+                                                )}
                                             </div>
                                             <p className="text-sm text-gray-800 font-medium leading-relaxed">
                                                 {req.requirement_text}
@@ -196,6 +243,56 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                     ))
                                 )}
                                 <div ref={requirementsEndRef} />
+                            </motion.div>
+                        ) : (
+                            <motion.div 
+                                key="conflicts-view"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="space-y-4"
+                            >
+                                {conflicts.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
+                                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                                            <AlertTriangle size={32} className="text-gray-400" />
+                                        </div>
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">No Conflict Detected Yet</p>
+                                    </div>
+                                ) : (
+                                    conflicts.map((conflict, idx) => {
+                                        const s = getSeverityStyle(conflict.severity);
+                                        return (
+                                            <motion.div
+                                                key={conflict.conflict_id}
+                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                transition={{ delay: idx * 0.05 }}
+                                                className={`p-4 rounded-2xl border shadow-sm space-y-3 ${s.card}`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">
+                                                            {conflict.conflict_type?.replace(/_/g, ' ')}
+                                                        </span>
+                                                    </div>
+                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${s.badge}`}>
+                                                        {conflict.severity} severity
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-800 font-medium leading-relaxed bg-white/70 p-3 rounded-xl border border-white/80">
+                                                    {conflict.explanation}
+                                                </p>
+                                                <div className="text-[9px] text-gray-400 font-mono space-y-0.5 pt-1 border-t border-gray-200/50">
+                                                    <p>REQ A: <span className="text-gray-500">{conflict.requirement_a_id.slice(0, 8)}...</span></p>
+                                                    <p>REQ B: <span className="text-gray-500">{conflict.requirement_b_id.slice(0, 8)}...</span></p>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })
+                                )}
+                                <div ref={conflictsEndRef} />
                             </motion.div>
                         )}
                     </AnimatePresence>

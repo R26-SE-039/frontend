@@ -30,6 +30,15 @@ export interface RequirementEntry {
   status: string;
 }
 
+export interface ConflictEntry {
+  conflict_id: string;
+  requirement_a_id: string;
+  requirement_b_id: string;
+  conflict_type: string;
+  severity: 'low' | 'medium' | 'high';
+  explanation: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -118,6 +127,11 @@ interface MeetingState {
   requirements: RequirementEntry[];
   addRequirements: (reqs: RequirementEntry[]) => void;
   clearRequirements: () => void;
+
+  // Conflicts
+  conflicts: ConflictEntry[];
+  addConflicts: (conflicts: ConflictEntry[]) => void;
+  clearConflicts: () => void;
 }
 
 export const useMeetingStore = create<MeetingState>()(
@@ -140,6 +154,7 @@ export const useMeetingStore = create<MeetingState>()(
       transcript: [],
       chatMessages: [],
       requirements: [],
+      conflicts: [],
 
       // Actions
       setUser: (user) => {
@@ -249,6 +264,15 @@ export const useMeetingStore = create<MeetingState>()(
       })),
 
       clearRequirements: () => set({ requirements: [] }),
+
+      addConflicts: (conflicts) => set((state) => ({
+        conflicts: [
+          ...state.conflicts,
+          ...conflicts.filter(c => !state.conflicts.find(existing => existing.conflict_id === c.conflict_id))
+        ]
+      })),
+
+      clearConflicts: () => set({ conflicts: [] }),
     }),
     {
       name: 'meeting-storage',
