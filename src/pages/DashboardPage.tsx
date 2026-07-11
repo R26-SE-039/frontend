@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Settings, LogOut, Plus, Users, Copy, Check, Calendar, Globe, 
+  Settings, LogOut, Users,
   Code, Sparkles, FileText, ClipboardCheck, ChevronLeft, ArrowRight,
-  Layout, Search, Bell, Shield, User
+  Layout, Search, Bell, Shield, User, FlaskConical, ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMeetingStore } from '../store/useMeetingStore';
@@ -13,14 +13,18 @@ import { FileStoryGenerator } from '../components/rag/FileStoryGenerator';
 import { PlaceholderView } from '../components/dashboard/PlaceholderView';
 import { OverviewView } from '../components/dashboard/OverviewView';
 import { MeetingHubView } from '../components/dashboard/MeetingHubView';
+import FailureAnalysisSubmitPage from './FailureAnalysisSubmitPage';
+import RepairHistoryPage from './RepairHistoryPage';
 
 type ViewType = 'menu' | 'meeting' | 'file-rag' | 'test-case' | 'test-script' | 'self-healing' | 'rtm';
+type SelfHealingView = 'submit' | 'history';
 
 export const DashboardPage: React.FC = () => {
   const { user, setUser, logout, currentProject } = useMeetingStore();
   const navigate = useNavigate();
   
   const [currentView, setCurrentView] = useState<ViewType>('menu');
+  const [selfHealingView, setSelfHealingView] = useState<SelfHealingView>('submit');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -269,8 +273,39 @@ export const DashboardPage: React.FC = () => {
                   {currentView === 'file-rag' && (
                     <FileStoryGenerator />
                   )}
+                  {currentView === 'self-healing' && (
+                    <div className="space-y-6 self-healing-surface">
+                      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                        <div>
+                          <h3 className="text-2xl font-black text-slate-900">Self Healing</h3>
+                          <p className="text-sm font-medium text-slate-400">
+                            Analyze CI/CD failures and review controlled repair actions for this workspace.
+                          </p>
+                        </div>
+                        <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                          <button
+                            type="button"
+                            onClick={() => setSelfHealingView('submit')}
+                            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${selfHealingView === 'submit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                          >
+                            <FlaskConical size={15} />
+                            Failure Analysis Submit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelfHealingView('history')}
+                            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${selfHealingView === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                          >
+                            <ClipboardList size={15} />
+                            Repair History
+                          </button>
+                        </div>
+                      </div>
 
-                  {(currentView === 'test-case' || currentView === 'test-script' || currentView === 'self-healing' || currentView === 'rtm') && (
+                      {selfHealingView === 'submit' ? <FailureAnalysisSubmitPage /> : <RepairHistoryPage />}
+                    </div>
+                  )}
+                  {(currentView === 'test-case' || currentView === 'test-script' || currentView === 'rtm') && (
                     <PlaceholderView 
                       title={navItems.find(n => n.id === currentView)?.label ?? 'Module'} 
                       description={`Advanced AI module for ${navItems.find(n => n.id === currentView)?.label.toLowerCase() ?? 'this feature'}. Seamlessly integrated into the ${currentProject?.name ?? 'workspace'} context.`}
@@ -286,3 +321,5 @@ export const DashboardPage: React.FC = () => {
     </div>
   );
 };
+
+
