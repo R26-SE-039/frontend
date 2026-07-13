@@ -85,3 +85,18 @@ export type RepairHistoryItem = {
   created_at: string;
   updated_at: string;
 };
+
+export type PaginatedResponse<T> = {
+  data: T[];
+  total: number;
+  page?: number;
+  limit?: number;
+};
+
+export type ListResponse<T> = T[] | PaginatedResponse<T>;
+
+export type RepairHistoryFilters = {
+  rootCause?: string;
+  publishStatus?: string;
+  repository?: string;
+};

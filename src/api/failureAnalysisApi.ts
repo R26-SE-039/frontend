@@ -1,5 +1,14 @@
 import { FAILURE_ANALYSIS_API_URL } from './config';
-import type { RepairHistoryItem } from '../types/selfHealing';
+import type {
+  DashboardSummary,
+  Failure,
+  FlakyTest,
+  HealingAction,
+  ListResponse,
+  Notification,
+  RepairHistoryFilters,
+  RepairHistoryItem,
+} from '../types/selfHealing';
 
 export type FailureAnalysisRequest = {
   test_name: string;
@@ -16,12 +25,6 @@ export type FailureAnalysisRequest = {
   memory_usage_mb: number;
   old_locator: string;
   github_actions_run_url: string;
-};
-
-export type RepairHistoryFilters = {
-  rootCause?: string;
-  publishStatus?: string;
-  repository?: string;
 };
 
 async function parseJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
@@ -44,6 +47,58 @@ export const failureAnalysisApi = {
     });
 
     return parseJsonResponse<T>(response, 'Analysis failed');
+  },
+
+  fetchFailures: async (page = 1, limit = 10): Promise<ListResponse<Failure>> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/failures/?page=${page}&limit=${limit}`);
+
+    return parseJsonResponse<ListResponse<Failure>>(response, 'Failed to fetch failures');
+  },
+
+  deleteFailure: async (testId: string): Promise<unknown> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/failures/${testId}`, {
+      method: 'DELETE',
+    });
+
+    return parseJsonResponse<unknown>(response, 'Failed to delete failure');
+  },
+
+  deleteRecord: async (endpoint: string, id: string | number): Promise<unknown> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/${endpoint}/${id}`, {
+      method: 'DELETE',
+    });
+
+    return parseJsonResponse<unknown>(response, `Failed to delete record at ${endpoint}`);
+  },
+
+  fetchFailureById: async (testId: string): Promise<Failure> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/failures/${testId}`);
+
+    return parseJsonResponse<Failure>(response, 'Failed to fetch failure details');
+  },
+
+  fetchHealingActions: async (page = 1, limit = 10): Promise<ListResponse<HealingAction>> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/healing/?page=${page}&limit=${limit}`);
+
+    return parseJsonResponse<ListResponse<HealingAction>>(response, 'Failed to fetch healing actions');
+  },
+
+  fetchFlakyTests: async (page = 1, limit = 10): Promise<ListResponse<FlakyTest>> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/analytics/flaky-tests?page=${page}&limit=${limit}`);
+
+    return parseJsonResponse<ListResponse<FlakyTest>>(response, 'Failed to fetch flaky tests');
+  },
+
+  fetchNotifications: async (page = 1, limit = 10): Promise<ListResponse<Notification>> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/notifications/?page=${page}&limit=${limit}`);
+
+    return parseJsonResponse<ListResponse<Notification>>(response, 'Failed to fetch notifications');
+  },
+
+  fetchDashboardSummary: async (): Promise<DashboardSummary> => {
+    const response = await fetch(`${FAILURE_ANALYSIS_API_URL}/dashboard/summary`);
+
+    return parseJsonResponse<DashboardSummary>(response, 'Failed to fetch dashboard summary');
   },
 
   planRepair: async <T>(attemptId: string): Promise<T> => {
