@@ -10,12 +10,27 @@ import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { OrganizationSettingsPage } from './pages/OrganizationSettingsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { BacklogPage } from './pages/BacklogPage';
+import SelfHealingDashboardPage from './pages/SelfHealingDashboardPage';
+import FailureAnalysisSubmitPage from './pages/FailureAnalysisSubmitPage';
+import FailureRecordsPage from './pages/FailureRecordsPage';
+import FailureDetailsPage from './pages/FailureDetailsPage';
+import HealingActionsPage from './pages/HealingActionsPage';
+import RepairHistoryPage from './pages/RepairHistoryPage';
+import SelfHealingAnalyticsPage from './pages/SelfHealingAnalyticsPage';
+import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useMeetingStore();
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
+const SelfHealingRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <DashboardLayout activeView="self-healing" title={title} showSelfHealingCrumbs>
+      {children}
+    </DashboardLayout>
+  </ProtectedRoute>
+);
 
 function App() {
   return (
@@ -63,6 +78,62 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/self-healing"
+            element={
+              <SelfHealingRoute title="Self Healing Dashboard">
+                <SelfHealingDashboardPage />
+              </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/self-healing/submit"
+            element={
+              <SelfHealingRoute title="Submit Failure">
+                <FailureAnalysisSubmitPage />
+              </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/self-healing/failures"
+            element={
+              <SelfHealingRoute title="Failures">
+                <FailureRecordsPage />
+              </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/self-healing/failures/:id"
+            element={
+              <SelfHealingRoute title="Failure Details">
+                <FailureDetailsPage />
+              </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/self-healing/healing"
+            element={
+              <SelfHealingRoute title="Healing">
+                <HealingActionsPage />
+              </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/self-healing/repair-history"
+            element={
+              <SelfHealingRoute title="Repair History">
+                <RepairHistoryPage />
+              </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/self-healing/analytics"
+            element={
+              <SelfHealingRoute title="Analytics">
+                <SelfHealingAnalyticsPage />
+              </SelfHealingRoute>
+            }
+          />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route
             path="/meeting/:id"
@@ -81,3 +152,5 @@ function App() {
 }
 
 export default App;
+
+
