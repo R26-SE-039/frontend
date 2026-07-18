@@ -121,6 +121,14 @@ export const meetingApi = {
     return response.json();
   },
 
+  getThreads: async (meetingId: string) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/threads`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch threads');
+    return response.json();
+  },
+
   getConflicts: async (meetingId: string) => {
     const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/conflicts`, {
       headers: getAuthHeaders(),

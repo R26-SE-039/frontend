@@ -39,6 +39,23 @@ export interface ConflictEntry {
   explanation: string;
 }
 
+export interface ThreadEntry {
+  id?: string; // mapping DB raw row field
+  thread_id: string;
+  meeting_id: string;
+  thread_label?: string;
+  summary_text?: string;
+  summary_embedding?: number[];
+  topic_label?: string;
+  entities: string[];
+  state: string; // 'context_only' | 'candidate' | 'clarification_needed' | 'confirmed' | 'approved' | 'rejected'
+  requirement_id?: string | null;
+  last_activity_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+
 export interface User {
   id: string;
   name: string;
@@ -132,6 +149,11 @@ interface MeetingState {
   conflicts: ConflictEntry[];
   addConflicts: (conflicts: ConflictEntry[]) => void;
   clearConflicts: () => void;
+
+  // Discussion Threads
+  threads: ThreadEntry[];
+  setThreads: (threads: ThreadEntry[]) => void;
+  clearThreads: () => void;
 }
 
 export const useMeetingStore = create<MeetingState>()(
@@ -155,6 +177,8 @@ export const useMeetingStore = create<MeetingState>()(
       chatMessages: [],
       requirements: [],
       conflicts: [],
+      threads: [],
+
 
       // Actions
       setUser: (user) => {
@@ -273,6 +297,9 @@ export const useMeetingStore = create<MeetingState>()(
       })),
 
       clearConflicts: () => set({ conflicts: [] }),
+
+      setThreads: (threads) => set({ threads }),
+      clearThreads: () => set({ threads: [] }),
     }),
     {
       name: 'meeting-storage',

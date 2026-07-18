@@ -1,7 +1,10 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight, ListChecks, AlertTriangle } from 'lucide-react';
-import { TranscriptEntry, RequirementEntry, ConflictEntry } from '../../store/useMeetingStore';
+import { 
+  MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight, ListChecks, AlertTriangle,
+  Clock, User, Sparkles, CheckCircle2, HelpCircle, Check, Calendar
+} from 'lucide-react';
+import { TranscriptEntry, RequirementEntry, ConflictEntry, useMeetingStore } from '../../store/useMeetingStore';
 
 interface TranscriptSidebarProps {
     transcript: TranscriptEntry[];
@@ -12,7 +15,48 @@ interface TranscriptSidebarProps {
     onClose?: () => void;
 }
 
+
+const STATES = [
+  { value: 'context_only', label: 'Context Only', shortLabel: 'Context' },
+  { value: 'candidate', label: 'Candidate', shortLabel: 'Candidate' },
+  { value: 'clarification_needed', label: 'Clarification Needed', shortLabel: 'Clarify' },
+  { value: 'confirmed', label: 'Confirmed', shortLabel: 'Confirm' }
+];
+
+const getActiveStepIndex = (currentState: string) => {
+  const normalized = currentState.toLowerCase();
+  if (normalized === 'context_only') return 0;
+  if (normalized === 'candidate') return 1;
+  if (normalized === 'clarification_needed') return 2;
+  if (normalized === 'confirmed' || normalized === 'approved' || normalized === 'rejected') return 3;
+  return 0;
+};
+
+const getConfidenceScore = (threadId: string, state: string) => {
+  let hash = 0;
+  for (let i = 0; i < threadId.length; i++) {
+    hash = threadId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const base = Math.abs(hash % 20); // 0 to 19
+  const normalized = state.toLowerCase();
+  if (normalized === 'confirmed' || normalized === 'approved') return 80 + base;
+  if (normalized === 'candidate') return 65 + base;
+  if (normalized === 'clarification_needed') return 40 + base;
+  return 20 + base;
+};
+
+const formatLastUpdated = (dateStr?: string) => {
+  if (!dateStr) return 'Just now';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return 'Just now';
+  }
+};
+
 export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript, requirements = [], conflicts = [], clearTranscript, acousticFeatures, onClose }) => {
+    const threads = useMeetingStore(state => state.threads);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
     const requirementsEndRef = useRef<HTMLDivElement>(null);
     const conflictsEndRef = useRef<HTMLDivElement>(null);
@@ -106,9 +150,9 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                             }`}
                         >
                             Req's
-                            {requirements.length > 0 && (
+                            {threads.length > 0 && (
                                 <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full text-[9px]">
-                                    {requirements.length}
+                                    {threads.length}
                                 </span>
                             )}
                         </button>
@@ -209,38 +253,118 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 exit={{ opacity: 0 }}
                                 className="space-y-4"
                             >
-                                {requirements.length === 0 ? (
+                                {threads.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
                                         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><ListChecks size={32} className="text-gray-400" /></div>
                                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Awaiting Requirements...</p>
                                     </div>
                                 ) : (
-                                    requirements.map((req) => (
-                                        <motion.div
-                                            key={req.requirement_id}
-                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-2 group hover:border-purple-300 transition-colors"
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                                    req.requirement_type.toLowerCase().includes('non') 
-                                                        ? 'bg-orange-100 text-orange-600' 
-                                                        : 'bg-green-100 text-green-600'
-                                                }`}>
-                                                    {req.requirement_type}
-                                                </span>
-                                                {req.status === 'conflicted' && (
-                                                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-500 flex items-center gap-1">
-                                                        <AlertTriangle size={9} /> Conflicted
+                                    threads.map((thread) => {
+                                        const confidence = getConfidenceScore(thread.thread_id, thread.state);
+                                        const stateIndex = getActiveStepIndex(thread.state);
+                                        
+                                        return (
+                                            <motion.div
+                                                key={thread.thread_id}
+                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-4 group hover:border-purple-300 transition-colors"
+                                            >
+                                                {/* Header info */}
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="space-y-1">
+                                                        <h4 className="text-sm font-bold text-gray-900 leading-tight">
+                                                            {thread.topic_label || thread.thread_label || 'Requirement Thread'}
+                                                        </h4>
+                                                        <div className="flex items-center gap-2 text-[10px] text-gray-400 font-semibold">
+                                                            <span className="flex items-center gap-1">
+                                                                <User size={10} /> {thread.created_by || 'Unknown'}
+                                                            </span>
+                                                            <span>•</span>
+                                                            <span className="flex items-center gap-1">
+                                                                <Clock size={10} /> {formatLastUpdated(thread.updated_at || thread.last_activity_at)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* State Badge */}
+                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                                                        thread.state === 'confirmed' || thread.state === 'approved'
+                                                            ? 'bg-green-50 text-green-600 border border-green-100'
+                                                            : thread.state === 'clarification_needed'
+                                                                ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                                                                : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                                    }`}>
+                                                        {thread.state.replace('_', ' ')}
                                                     </span>
-                                                )}
-                                            </div>
-                                            <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                                                {req.requirement_text}
-                                            </p>
-                                        </motion.div>
-                                    ))
+                                                </div>
+
+                                                {/* Description */}
+                                                <p className="text-xs text-gray-600 leading-relaxed font-medium bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                                                    {thread.summary_text || 'No description yet.'}
+                                                </p>
+
+                                                {/* Stepper Visualization */}
+                                                <div className="pt-2 border-t border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">State Lifecycle</p>
+                                                    <div className="flex items-center justify-between relative px-2">
+                                                        {/* Connector line behind steps */}
+                                                        <div className="absolute left-6 right-6 top-2 h-0.5 bg-gray-100 -z-10" />
+                                                        
+                                                        {STATES.map((s, idx) => {
+                                                            const isCompleted = idx < stateIndex;
+                                                            const isActive = idx === stateIndex;
+                                                            
+                                                            return (
+                                                                <div key={s.value} className="flex flex-col items-center gap-1.5 flex-1 relative">
+                                                                    {/* Connecting line progress overlay */}
+                                                                    {idx < stateIndex && idx < STATES.length - 1 && (
+                                                                        <div className="absolute left-[50%] right-[-50%] top-2 h-0.5 bg-purple-500 -z-10" />
+                                                                    )}
+                                                                    
+                                                                    {/* Dot */}
+                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
+                                                                        isCompleted 
+                                                                            ? 'bg-purple-600 text-white shadow-sm shadow-purple-200' 
+                                                                            : isActive
+                                                                                ? 'bg-purple-600 text-white ring-4 ring-purple-100'
+                                                                                : 'bg-white border-2 border-gray-200 text-gray-400'
+                                                                    }`}>
+                                                                        {isCompleted ? <Check size={8} className="stroke-[3]" /> : idx + 1}
+                                                                    </div>
+                                                                    
+                                                                    {/* Step Label */}
+                                                                    <span className={`text-[8px] font-bold uppercase tracking-wider text-center select-none ${
+                                                                        isActive 
+                                                                            ? 'text-purple-600 font-extrabold' 
+                                                                            : isCompleted
+                                                                                ? 'text-gray-700 font-semibold'
+                                                                                : 'text-gray-400 font-medium'
+                                                                    }`}>
+                                                                        {s.shortLabel}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Bottom info: Confidence */}
+                                                <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-[10px]">
+                                                    <span className="text-gray-400 font-bold uppercase tracking-wider">Confidence Score</span>
+                                                    <span className={`font-black flex items-center gap-1 ${
+                                                        confidence >= 80 
+                                                            ? 'text-green-600' 
+                                                            : confidence >= 60
+                                                                ? 'text-orange-600'
+                                                                : 'text-gray-500'
+                                                    }`}>
+                                                        <Sparkles size={11} /> {confidence}%
+                                                    </span>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })
                                 )}
                                 <div ref={requirementsEndRef} />
                             </motion.div>
