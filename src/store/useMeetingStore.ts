@@ -48,11 +48,16 @@ export interface ThreadEntry {
   summary_embedding?: number[];
   topic_label?: string;
   entities: string[];
-  state: string; // 'context_only' | 'candidate' | 'clarification_needed' | 'confirmed' | 'approved' | 'rejected'
+  state: string; // 'candidate' | 'clarification_needed' | 'confirmed' | 'approved' | 'rejected'
   requirement_id?: string | null;
   last_activity_at?: string;
   created_at?: string;
   updated_at?: string;
+  classification_confidence?: number;
+  match_confidence?: number;
+  created_by?: string;
+  timestamp?: string;
+  utterance_text?: string;
 }
 
 

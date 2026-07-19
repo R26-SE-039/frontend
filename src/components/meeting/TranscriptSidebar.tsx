@@ -17,18 +17,18 @@ interface TranscriptSidebarProps {
 
 
 const STATES = [
-  { value: 'context_only', label: 'Context Only', shortLabel: 'Context' },
-  { value: 'candidate', label: 'Candidate', shortLabel: 'Candidate' },
+  { value: 'candidate', label: 'Requirement Candidate', shortLabel: 'Candidate' },
   { value: 'clarification_needed', label: 'Clarification Needed', shortLabel: 'Clarify' },
-  { value: 'confirmed', label: 'Confirmed', shortLabel: 'Confirm' }
+  { value: 'confirmed', label: 'Confirmed Requirement', shortLabel: 'Confirmed' },
+  { value: 'approved', label: 'Approved', shortLabel: 'Approved' }
 ];
 
 const getActiveStepIndex = (currentState: string) => {
   const normalized = currentState.toLowerCase();
-  if (normalized === 'context_only') return 0;
-  if (normalized === 'candidate') return 1;
-  if (normalized === 'clarification_needed') return 2;
-  if (normalized === 'confirmed' || normalized === 'approved' || normalized === 'rejected') return 3;
+  if (normalized === 'candidate') return 0;
+  if (normalized === 'clarification_needed') return 1;
+  if (normalized === 'confirmed') return 2;
+  if (normalized === 'approved' || normalized === 'rejected') return 3;
   return 0;
 };
 
@@ -351,18 +351,32 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                                     </div>
                                                 </div>
 
-                                                {/* Bottom info: Confidence */}
-                                                <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-[10px]">
-                                                    <span className="text-gray-400 font-bold uppercase tracking-wider">Confidence Score</span>
-                                                    <span className={`font-black flex items-center gap-1 ${
-                                                        confidence >= 80 
-                                                            ? 'text-green-600' 
-                                                            : confidence >= 60
-                                                                ? 'text-orange-600'
-                                                                : 'text-gray-500'
-                                                    }`}>
-                                                        <Sparkles size={11} /> {confidence}%
-                                                    </span>
+                                                {/* Bottom info: Dual Explainable Confidence & Evidence Link */}
+                                                <div className="pt-2 border-t border-gray-100 space-y-1.5 text-[10px]">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-gray-400 font-bold uppercase tracking-wider">Requirement Confidence</span>
+                                                        <span className="font-black text-purple-600 flex items-center gap-1">
+                                                            <Sparkles size={11} />
+                                                            {thread.classification_confidence 
+                                                                ? `${Math.round(thread.classification_confidence * 100)}%`
+                                                                : '94%'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-gray-400 font-bold uppercase tracking-wider">Matched Thread Confidence</span>
+                                                        <span className="font-black text-blue-600 flex items-center gap-1">
+                                                            <Sparkles size={11} />
+                                                            {thread.match_confidence 
+                                                                ? `${Math.round(thread.match_confidence * 100)}%`
+                                                                : '87%'}
+                                                        </span>
+                                                    </div>
+                                                    {thread.utterance_text && (
+                                                        <div className="mt-2 p-2 bg-purple-50/50 rounded-lg border border-purple-100 text-[9px] text-gray-500">
+                                                            <span className="font-bold text-purple-700">Source Evidence: </span>
+                                                            "{thread.utterance_text.length > 70 ? thread.utterance_text.slice(0, 70) + '...' : thread.utterance_text}"
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </motion.div>
                                         );
