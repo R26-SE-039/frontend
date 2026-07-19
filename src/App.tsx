@@ -23,6 +23,7 @@ import TestCaseSetupPage from './pages/TestCaseSetupPage';
 import TestCaseDomInspectorPage from './pages/TestCaseDomInspectorPage';
 import TestCaseCodeReviewPage from './pages/TestCaseCodeReviewPage';
 import TestCaseSuiteEditorPage from './pages/TestCaseSuiteEditorPage';
+import TestCaseExecutionPage from './pages/TestCaseExecutionPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -192,6 +193,14 @@ function App() {
             element={
               <TestCaseRoute title="Suite Editor">
                 <TestCaseSuiteEditorPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/execution"
+            element={
+              <TestCaseRoute title="Execution & Report">
+                <TestCaseExecutionPage />
               </TestCaseRoute>
             }
           />
