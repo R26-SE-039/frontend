@@ -27,11 +27,6 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const LLM_REQUEST_TIMEOUT_MS = 180_000;
 const CRAWL_REQUEST_TIMEOUT_MS = 90_000;
 
-// The dashboard's active project lives in the auth service, while the test case
-// generation backend keeps its own project rows. This maps auth project id ->
-// generation project id so every page stays scoped to the workspace project.
-const PROJECT_MAP_STORAGE_KEY = 'test-case-gen-project-map';
-
 async function request<T>(path: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
   const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const controller = new AbortController();
@@ -63,44 +58,32 @@ async function request<T>(path: string, options?: RequestInit & { timeoutMs?: nu
   return response.json() as Promise<T>;
 }
 
-function readProjectMap(): Record<string, string> {
-  try {
-    return JSON.parse(localStorage.getItem(PROJECT_MAP_STORAGE_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
-
 export const testCaseApi = {
   // ── Projects ──────────────────────────────────────────────────────────────
   listProjects: async (): Promise<TestCaseProject[]> => request<TestCaseProject[]>('/api/v1/projects'),
 
-  createProject: async (name: string, description?: string): Promise<TestCaseProject> =>
+  createProject: async (name: string, description?: string, id?: string): Promise<TestCaseProject> =>
     request<TestCaseProject>('/api/v1/projects', {
       method: 'POST',
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ id, name, description }),
     }),
 
   /**
-   * Resolve the generation-backend project for the workspace's current project,
-   * creating it on first use. Every page calls this before loading data.
+   * Resolve the generation-backend project for the workspace's current project.
+   * Both services use UUID project ids, and the backend's POST /projects is a
+   * get-or-create when an id is supplied — so the auth-service project id IS
+   * the generation project id. Every page calls this before loading data.
    */
   ensureProject: async (): Promise<string> => {
     const current = useMeetingStore.getState().currentProject;
     if (!current) throw new Error('Select a project before opening Test Case Gen.');
 
-    const map = readProjectMap();
-    const projects = await testCaseApi.listProjects();
-
-    const mapped = map[current.id];
-    if (mapped && projects.some((project) => project.id === mapped)) return mapped;
-
-    const byName = projects.find((project) => project.name === current.name);
-    const resolved = byName ?? (await testCaseApi.createProject(current.name, `NextGenQA workspace project ${current.id}`));
-
-    map[current.id] = resolved.id;
-    localStorage.setItem(PROJECT_MAP_STORAGE_KEY, JSON.stringify(map));
-    return resolved.id;
+    const project = await testCaseApi.createProject(
+      current.name,
+      current.description || `NextGenQA workspace project ${current.id}`,
+      current.id,
+    );
+    return project.id;
   },
 
   // ── User stories (S1) ─────────────────────────────────────────────────────
