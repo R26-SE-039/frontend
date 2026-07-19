@@ -17,18 +17,18 @@ interface TranscriptSidebarProps {
 
 
 const STATES = [
-  { value: 'candidate', label: 'Requirement Candidate', shortLabel: 'Candidate' },
-  { value: 'clarification_needed', label: 'Clarification Needed', shortLabel: 'Clarify' },
-  { value: 'confirmed', label: 'Confirmed Requirement', shortLabel: 'Confirmed' },
-  { value: 'approved', label: 'Approved', shortLabel: 'Approved' }
+  { value: 'DISCOVERED', label: 'Discovered Requirement', shortLabel: 'Discovered' },
+  { value: 'DISCUSSION', label: 'In Discussion', shortLabel: 'Discussion' },
+  { value: 'REFINED', label: 'Refined Details', shortLabel: 'Refined' },
+  { value: 'VALIDATED', label: 'Validated Requirement', shortLabel: 'Validated' }
 ];
 
 const getActiveStepIndex = (currentState: string) => {
-  const normalized = currentState.toLowerCase();
-  if (normalized === 'candidate') return 0;
-  if (normalized === 'clarification_needed') return 1;
-  if (normalized === 'confirmed') return 2;
-  if (normalized === 'approved' || normalized === 'rejected') return 3;
+  const normalized = (currentState || '').toUpperCase();
+  if (normalized === 'DISCOVERED' || normalized === 'CANDIDATE') return 0;
+  if (normalized === 'DISCUSSION' || normalized === 'CLARIFICATION_NEEDED') return 1;
+  if (normalized === 'REFINED' || normalized === 'CONFIRMED') return 2;
+  if (normalized === 'VALIDATED' || normalized === 'APPROVED') return 3;
   return 0;
 };
 
@@ -39,11 +39,11 @@ const getConfidenceScore = (threadId: string | undefined, state: string) => {
     hash = tid.charCodeAt(i) + ((hash << 5) - hash);
   }
   const base = Math.abs(hash % 20); // 0 to 19
-  const normalized = state.toLowerCase();
-  if (normalized === 'confirmed' || normalized === 'approved') return 80 + base;
-  if (normalized === 'candidate') return 65 + base;
-  if (normalized === 'clarification_needed') return 40 + base;
-  return 20 + base;
+  const normalized = (state || '').toUpperCase();
+  if (normalized === 'VALIDATED' || normalized === 'APPROVED') return 85 + base;
+  if (normalized === 'REFINED' || normalized === 'CONFIRMED') return 75 + base;
+  if (normalized === 'DISCUSSION') return 55 + base;
+  return 35 + base;
 };
 
 const formatLastUpdated = (dateStr?: string) => {
@@ -262,48 +262,50 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 ) : (
                                     threads.map((thread) => {
                                         const tid = thread.thread_id || thread.id || '';
-                                        const confidence = getConfidenceScore(tid, thread.state);
-                                        const stateIndex = getActiveStepIndex(thread.state);
+                                        const stateName = (thread.state || 'DISCOVERED').toUpperCase();
+                                        const stateIndex = getActiveStepIndex(stateName);
                                         
                                         return (
                                             <motion.div
                                                 key={tid}
                                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-4 group hover:border-purple-300 transition-colors"
+                                                className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-4 group hover:border-purple-300 transition-colors text-left"
                                             >
                                                 {/* Header info */}
                                                 <div className="flex items-start justify-between gap-2">
                                                     <div className="space-y-1">
                                                         <h4 className="text-sm font-bold text-gray-900 leading-tight">
-                                                            {thread.topic_label || thread.thread_label || 'Requirement Thread'}
+                                                            {thread.requirement_title || thread.topic_label || thread.thread_label || 'Requirement Thread'}
                                                         </h4>
                                                         <div className="flex items-center gap-2 text-[10px] text-gray-400 font-semibold">
                                                             <span className="flex items-center gap-1">
-                                                                <User size={10} /> {thread.created_by || 'Unknown'}
+                                                                <User size={10} /> {thread.created_by || 'Meeting Host'}
                                                             </span>
                                                             <span>•</span>
                                                             <span className="flex items-center gap-1">
-                                                                <Clock size={10} /> {formatLastUpdated(thread.updated_at || thread.last_activity_at)}
+                                                                <Clock size={10} /> {formatLastUpdated(thread.updated_at || thread.created_at)}
                                                             </span>
                                                         </div>
                                                     </div>
                                                     
                                                     {/* State Badge */}
                                                     <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
-                                                        thread.state === 'confirmed' || thread.state === 'approved'
+                                                        stateName === 'VALIDATED' || stateName === 'APPROVED'
                                                             ? 'bg-green-50 text-green-600 border border-green-100'
-                                                            : thread.state === 'clarification_needed'
-                                                                ? 'bg-orange-50 text-orange-600 border border-orange-100'
-                                                                : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                                            : stateName === 'REFINED'
+                                                                ? 'bg-purple-50 text-purple-600 border border-purple-100'
+                                                                : stateName === 'DISCUSSION'
+                                                                    ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                                                                    : 'bg-blue-50 text-blue-600 border border-blue-100'
                                                     }`}>
-                                                        {thread.state.replace('_', ' ')}
+                                                        {stateName.replace('_', ' ')}
                                                     </span>
                                                 </div>
 
                                                 {/* Description */}
                                                 <p className="text-xs text-gray-600 leading-relaxed font-medium bg-gray-50/50 p-3 rounded-xl border border-gray-100">
-                                                    {thread.summary_text || 'No description yet.'}
+                                                    {thread.summary || thread.summary_text || 'No detailed summary recorded.'}
                                                 </p>
 
                                                 {/* Stepper Visualization */}
@@ -351,33 +353,15 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                                     </div>
                                                 </div>
 
-                                                {/* Bottom info: Dual Explainable Confidence & Evidence Link */}
-                                                <div className="pt-2 border-t border-gray-100 space-y-1.5 text-[10px]">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-gray-400 font-bold uppercase tracking-wider">Requirement Confidence</span>
-                                                        <span className="font-black text-purple-600 flex items-center gap-1">
-                                                            <Sparkles size={11} />
-                                                            {thread.classification_confidence 
-                                                                ? `${Math.round(thread.classification_confidence * 100)}%`
-                                                                : '94%'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-gray-400 font-bold uppercase tracking-wider">Matched Thread Confidence</span>
-                                                        <span className="font-black text-blue-600 flex items-center gap-1">
-                                                            <Sparkles size={11} />
-                                                            {thread.match_confidence 
-                                                                ? `${Math.round(thread.match_confidence * 100)}%`
-                                                                : '87%'}
-                                                        </span>
-                                                    </div>
-                                                    {thread.utterance_text && (
-                                                        <div className="mt-2 p-2 bg-purple-50/50 rounded-lg border border-purple-100 text-[9px] text-gray-500">
+                                                {/* Bottom info */}
+                                                {thread.utterance_text && (
+                                                    <div className="pt-2 border-t border-gray-100 text-[10px]">
+                                                        <div className="p-2 bg-purple-50/50 rounded-lg border border-purple-100 text-[9px] text-gray-500">
                                                             <span className="font-bold text-purple-700">Source Evidence: </span>
                                                             "{thread.utterance_text.length > 70 ? thread.utterance_text.slice(0, 70) + '...' : thread.utterance_text}"
                                                         </div>
-                                                    )}
-                                                </div>
+                                                    </div>
+                                                )}
                                             </motion.div>
                                         );
                                     })
@@ -402,31 +386,43 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 ) : (
                                     conflicts.map((conflict, idx) => {
                                         const s = getSeverityStyle(conflict.severity);
+                                        const reqA = requirements.find(r => r.requirement_id === conflict.requirement_a_id || r.id === conflict.requirement_a_id);
+                                        const reqB = requirements.find(r => r.requirement_id === conflict.requirement_b_id || r.id === conflict.requirement_b_id);
+
                                         return (
                                             <motion.div
-                                                key={conflict.conflict_id}
+                                                key={conflict.conflict_id || conflict.id || idx}
                                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                                 transition={{ delay: idx * 0.05 }}
-                                                className={`p-4 rounded-2xl border shadow-sm space-y-3 ${s.card}`}
+                                                className={`p-4 rounded-2xl border shadow-sm space-y-3 text-left ${s.card}`}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-2 h-2 rounded-full ${s.dot}`} />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">
-                                                            {conflict.conflict_type?.replace(/_/g, ' ')}
+                                                            {conflict.conflict_type?.replace(/_/g, ' ')} Conflict
                                                         </span>
                                                     </div>
                                                     <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${s.badge}`}>
                                                         {conflict.severity} severity
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-gray-800 font-medium leading-relaxed bg-white/70 p-3 rounded-xl border border-white/80">
+                                                <p className="text-xs text-gray-800 font-medium leading-relaxed bg-white/80 p-3 rounded-xl border border-white">
+                                                    <span className="font-bold text-red-600 block mb-1">Conflict Analysis:</span>
                                                     {conflict.explanation}
                                                 </p>
-                                                <div className="text-[9px] text-gray-400 font-mono space-y-0.5 pt-1 border-t border-gray-200/50">
-                                                    <p>REQ A: <span className="text-gray-500">{conflict.requirement_a_id.slice(0, 8)}...</span></p>
-                                                    <p>REQ B: <span className="text-gray-500">{conflict.requirement_b_id.slice(0, 8)}...</span></p>
+                                                
+                                                {/* Requirement A vs B comparison */}
+                                                <div className="space-y-2 pt-1 border-t border-gray-200/50 text-[10px]">
+                                                    <div className="p-2 rounded-lg bg-red-100/40 border border-red-200/50">
+                                                        <span className="font-bold text-red-700 block text-[9px] uppercase tracking-wider mb-0.5">Requirement A</span>
+                                                        <p className="text-gray-800 font-medium">{reqA ? reqA.requirement_text : `ID: ${conflict.requirement_a_id.slice(0, 8)}...`}</p>
+                                                    </div>
+                                                    <div className="p-2 rounded-lg bg-red-100/40 border border-red-200/50">
+                                                        <span className="font-bold text-red-700 block text-[9px] uppercase tracking-wider mb-0.5">Requirement B</span>
+                                                        <p className="text-gray-800 font-medium">{reqB ? reqB.requirement_text : `ID: ${conflict.requirement_b_id.slice(0, 8)}...`}</p>
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         );

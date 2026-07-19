@@ -137,11 +137,15 @@ export const meetingApi = {
     return response.json();
   },
 
-  finalizeRequirements: async (meetingId: string, resolutions: any[], editedRequirements: any[]) => {
+  finalizeRequirements: async (meetingId: string, resolutions: any[], editedRequirements: any[], editedThreads: any[] = []) => {
     const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/requirements/finalize`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ resolutions, edited_requirements: editedRequirements }),
+      body: JSON.stringify({
+        resolutions,
+        edited_requirements: editedRequirements,
+        edited_threads: editedThreads
+      }),
     });
     if (!response.ok) throw new Error('Failed to finalize requirements');
     return response.json();

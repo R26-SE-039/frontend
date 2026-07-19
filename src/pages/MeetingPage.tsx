@@ -48,7 +48,7 @@ export const MeetingPage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch threads on mount
+  // Fetch threads, requirements, and conflicts on mount
   useEffect(() => {
     if (user?.meetingId) {
       meetingApi.getThreads(user.meetingId)
@@ -58,6 +58,22 @@ export const MeetingPage: React.FC = () => {
           }
         })
         .catch(err => console.error('Failed to load threads on mount:', err));
+
+      meetingApi.getRequirements(user.meetingId)
+        .then(res => {
+          if (res.status === 'success' && res.requirements) {
+            useMeetingStore.getState().setRequirements(res.requirements);
+          }
+        })
+        .catch(err => console.error('Failed to load requirements on mount:', err));
+
+      meetingApi.getConflicts(user.meetingId)
+        .then(res => {
+          if (res.status === 'success' && res.conflicts) {
+            useMeetingStore.getState().setConflicts(res.conflicts);
+          }
+        })
+        .catch(err => console.error('Failed to load conflicts on mount:', err));
     }
   }, [user?.meetingId]);
 
