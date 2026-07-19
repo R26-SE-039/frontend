@@ -18,6 +18,7 @@ import HealingActionsPage from './pages/HealingActionsPage';
 import RepairHistoryPage from './pages/RepairHistoryPage';
 import SelfHealingAnalyticsPage from './pages/SelfHealingAnalyticsPage';
 import TestCaseStoriesPage from './pages/TestCaseStoriesPage';
+import TestCaseGherkinPage from './pages/TestCaseGherkinPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -147,6 +148,14 @@ function App() {
             element={
               <TestCaseRoute title="User Stories">
                 <TestCaseStoriesPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/gherkin"
+            element={
+              <TestCaseRoute title="Gherkin Editor">
+                <TestCaseGherkinPage />
               </TestCaseRoute>
             }
           />
