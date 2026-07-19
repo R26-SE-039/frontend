@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMeetingStore } from '../store/useMeetingStore';
@@ -20,8 +20,14 @@ import {
 export const DashboardPage: React.FC = () => {
   const { user, setUser, currentProject } = useMeetingStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [currentView, setCurrentView] = useState<DashboardViewType>('menu');
+  const requestedView = (location.state as { view?: DashboardViewType } | null)?.view;
+  const [currentView, setCurrentView] = useState<DashboardViewType>(requestedView ?? 'menu');
+
+  useEffect(() => {
+    if (requestedView) setCurrentView(requestedView);
+  }, [requestedView]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreated, setIsCreated] = useState(false);

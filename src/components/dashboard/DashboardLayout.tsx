@@ -182,6 +182,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     return '';
   }, [location.pathname]);
 
+  const activeTestCaseLabel = testCaseLinks.find((item) => item.path === activeTestCasePath)?.label ?? '';
+  const activeTestScriptLabel = testScriptLinks.find((item) => item.path === activeTestScriptPath)?.label ?? '';
+
   const selectModule = (view: DashboardViewType) => {
     setIsEditingProfile(false);
     if (onModuleSelect) {
@@ -404,9 +407,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <Home size={14} /> Main Dashboard
                     </button>
                     <span>/</span>
-                    <button type="button" onClick={() => navigate('/test-case')} className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-indigo-600">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/dashboard', { state: { view: 'test-case' } })}
+                      className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-indigo-600"
+                    >
                       Test Case Gen
                     </button>
+                    {activeTestCaseLabel && (
+                      <>
+                        <span>/</span>
+                        <span className="rounded-lg px-2 py-1 text-indigo-600">{activeTestCaseLabel}</span>
+                      </>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {testCaseLinks.map((item) => (
@@ -429,9 +442,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <Home size={14} /> Main Dashboard
                     </button>
                     <span>/</span>
-                    <button type="button" onClick={() => navigate('/test-script')} className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-emerald-600">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/dashboard', { state: { view: 'test-script' } })}
+                      className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-emerald-600"
+                    >
                       Test Script Gen
                     </button>
+                    {activeTestScriptLabel && (
+                      <>
+                        <span>/</span>
+                        <span className="rounded-lg px-2 py-1 text-emerald-600">{activeTestScriptLabel}</span>
+                      </>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {testScriptLinks.map((item) => (
