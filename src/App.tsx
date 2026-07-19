@@ -25,6 +25,7 @@ import TestCaseCodeReviewPage from './pages/TestCaseCodeReviewPage';
 import TestCaseSuiteEditorPage from './pages/TestCaseSuiteEditorPage';
 import TestCaseExecutionPage from './pages/TestCaseExecutionPage';
 import TestCaseGitHubSettingsPage from './pages/TestCaseGitHubSettingsPage';
+import TestCaseAgentExplorerPage from './pages/TestCaseAgentExplorerPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -210,6 +211,14 @@ function App() {
             element={
               <TestCaseRoute title="GitHub Connection">
                 <TestCaseGitHubSettingsPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/agent-explorer"
+            element={
+              <TestCaseRoute title="Agent Explorer">
+                <TestCaseAgentExplorerPage />
               </TestCaseRoute>
             }
           />
