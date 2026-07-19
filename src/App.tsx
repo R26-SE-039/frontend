@@ -21,6 +21,8 @@ import TestCaseStoriesPage from './pages/TestCaseStoriesPage';
 import TestCaseGherkinPage from './pages/TestCaseGherkinPage';
 import TestCaseSetupPage from './pages/TestCaseSetupPage';
 import TestCaseDomInspectorPage from './pages/TestCaseDomInspectorPage';
+import TestCaseCodeReviewPage from './pages/TestCaseCodeReviewPage';
+import TestCaseSuiteEditorPage from './pages/TestCaseSuiteEditorPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -174,6 +176,22 @@ function App() {
             element={
               <TestCaseRoute title="DOM Inspector">
                 <TestCaseDomInspectorPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/code-review"
+            element={
+              <TestCaseRoute title="Code Review">
+                <TestCaseCodeReviewPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/code-review/:suiteId"
+            element={
+              <TestCaseRoute title="Suite Editor">
+                <TestCaseSuiteEditorPage />
               </TestCaseRoute>
             }
           />
