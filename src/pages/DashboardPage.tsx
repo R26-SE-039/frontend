@@ -13,6 +13,7 @@ import {
   type DashboardViewType,
   dashboardNavItems,
   selfHealingLinks,
+  testCaseLinks,
 } from '../components/dashboard/DashboardLayout';
 
 export const DashboardPage: React.FC = () => {
@@ -147,7 +148,42 @@ export const DashboardPage: React.FC = () => {
               </div>
             )}
 
-            {(currentView === 'test-case' || currentView === 'test-script' || currentView === 'rtm') && (
+            {currentView === 'test-case' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900">Test Case Generation</h3>
+                    <p className="text-sm font-medium text-slate-400">
+                      Turn user stories into Gherkin scenarios and executable suites, then run them in CI/CD.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {testCaseLinks.map((item) => (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => navigate(item.path)}
+                      className="group flex h-full min-h-32 items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+                    >
+                      <div className="flex gap-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                          {item.icon}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900">{item.label}</h4>
+                          <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{item.description}</p>
+                        </div>
+                      </div>
+                      <ArrowRight size={16} className="mt-1 shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-indigo-500" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(currentView === 'test-script' || currentView === 'rtm') && (
               <PlaceholderView
                 title={activeModule?.label ?? 'Module'}
                 description={`Advanced AI module for ${activeModule?.label.toLowerCase() ?? 'this feature'}. Seamlessly integrated into the ${currentProject.name} context.`}

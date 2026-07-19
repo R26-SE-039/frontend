@@ -18,6 +18,10 @@ import {
   FlaskConical,
   ClipboardList,
   Home,
+  SlidersHorizontal,
+  Rocket,
+  Bot,
+  GitBranch,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMeetingStore } from '../../store/useMeetingStore';
@@ -73,12 +77,64 @@ export const selfHealingLinks = [
   },
 ] as const;
 
+export const testCaseLinks = [
+  {
+    label: 'User Stories',
+    description: 'Curate user stories and choose which flow into Gherkin generation.',
+    path: '/test-case',
+    icon: <ClipboardList size={18} />,
+  },
+  {
+    label: 'Gherkin Editor',
+    description: 'Review, edit, and approve AI-generated Gherkin scenarios.',
+    path: '/test-case/gherkin',
+    icon: <FileText size={18} />,
+  },
+  {
+    label: 'Mode & URL Setup',
+    description: 'Pick Abstract or DOM-aware generation and validate the staging URL.',
+    path: '/test-case/setup',
+    icon: <SlidersHorizontal size={18} />,
+  },
+  {
+    label: 'DOM Inspector',
+    description: 'Crawl the staging URL and curate the extracted selectors.',
+    path: '/test-case/dom-inspector',
+    icon: <Search size={18} />,
+  },
+  {
+    label: 'Code Review',
+    description: 'Generate and review executable suites for Selenium, Playwright, and Cypress.',
+    path: '/test-case/code-review',
+    icon: <Code size={18} />,
+  },
+  {
+    label: 'Execution & Report',
+    description: 'Run suites locally or on GitHub Actions and inspect live reports.',
+    path: '/test-case/execution',
+    icon: <Rocket size={18} />,
+  },
+  {
+    label: 'Agent Explorer',
+    description: 'Let the autonomous agent explore the app and discover scenarios.',
+    path: '/test-case/agent-explorer',
+    icon: <Bot size={18} />,
+  },
+  {
+    label: 'GitHub Connection',
+    description: 'Link a repository so generated suites can run in CI/CD.',
+    path: '/test-case/settings/github',
+    icon: <GitBranch size={18} />,
+  },
+] as const;
+
 type DashboardLayoutProps = {
   activeView?: DashboardViewType;
   title?: string;
   children: React.ReactNode;
   onModuleSelect?: (view: DashboardViewType) => void;
   showSelfHealingCrumbs?: boolean;
+  showTestCaseCrumbs?: boolean;
 };
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
@@ -87,6 +143,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   onModuleSelect,
   showSelfHealingCrumbs = false,
+  showTestCaseCrumbs = false,
 }) => {
   const { user, logout, currentProject } = useMeetingStore();
   const navigate = useNavigate();
@@ -108,6 +165,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     return '';
   }, [location.pathname]);
 
+  const activeTestCasePath = useMemo(() => {
+    const exact = testCaseLinks.find((item) => item.path === location.pathname);
+    if (exact) return exact.path;
+    if (location.pathname.startsWith('/test-case/code-review/')) return '/test-case/code-review';
+    return '';
+  }, [location.pathname]);
+
   const selectModule = (view: DashboardViewType) => {
     setIsEditingProfile(false);
     if (onModuleSelect) {
@@ -117,6 +181,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
     if (view === 'self-healing') {
       navigate('/self-healing');
+      return;
+    }
+
+    if (view === 'test-case') {
+      navigate('/test-case');
       return;
     }
 
@@ -308,6 +377,31 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${activeSelfHealingPath === item.path ? 'bg-rose-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:text-rose-600 border border-slate-200'}`}
                       >
                         {item.label.replace('Self Healing ', '')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {showTestCaseCrumbs && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                    <button type="button" onClick={() => navigate('/dashboard')} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-blue-600">
+                      <Home size={14} /> Main Dashboard
+                    </button>
+                    <span>/</span>
+                    <button type="button" onClick={() => navigate('/test-case')} className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-indigo-600">
+                      Test Case Gen
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {testCaseLinks.map((item) => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        onClick={() => navigate(item.path)}
+                        className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${activeTestCasePath === item.path ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:text-indigo-600 border border-slate-200'}`}
+                      >
+                        {item.label}
                       </button>
                     ))}
                   </div>

@@ -17,6 +17,7 @@ import FailureDetailsPage from './pages/FailureDetailsPage';
 import HealingActionsPage from './pages/HealingActionsPage';
 import RepairHistoryPage from './pages/RepairHistoryPage';
 import SelfHealingAnalyticsPage from './pages/SelfHealingAnalyticsPage';
+import TestCaseStoriesPage from './pages/TestCaseStoriesPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -27,6 +28,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const SelfHealingRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <ProtectedRoute>
     <DashboardLayout activeView="self-healing" title={title} showSelfHealingCrumbs>
+      {children}
+    </DashboardLayout>
+  </ProtectedRoute>
+);
+const TestCaseRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <DashboardLayout activeView="test-case" title={title} showTestCaseCrumbs>
       {children}
     </DashboardLayout>
   </ProtectedRoute>
@@ -132,6 +140,14 @@ function App() {
               <SelfHealingRoute title="Analytics">
                 <SelfHealingAnalyticsPage />
               </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/test-case"
+            element={
+              <TestCaseRoute title="User Stories">
+                <TestCaseStoriesPage />
+              </TestCaseRoute>
             }
           />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
