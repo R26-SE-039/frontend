@@ -132,11 +132,11 @@ export default function TestCaseGherkinPage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/test-case/setup')}
+            onClick={() => navigate('/test-script')}
             disabled={approvedCount === 0}
             className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:from-indigo-700 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Continue to Mode Setup <ArrowRight size={14} />
+            Continue to Test Script Gen <ArrowRight size={14} />
           </button>
         </div>
       </div>

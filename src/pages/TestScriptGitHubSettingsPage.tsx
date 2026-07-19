@@ -18,7 +18,7 @@ import TestCasePill from '../components/testCase/TestCasePill';
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100';
 
-export default function TestCaseGitHubSettingsPage() {
+export default function TestScriptGitHubSettingsPage() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [connection, setConnection] = useState<GitHubConnection | null>(null);
   const [loading, setLoading] = useState(true);

@@ -23,7 +23,7 @@ const inputCls =
 
 type ElementDraft = { role: string; selector: string; tag: string };
 
-export default function TestCaseDomInspectorPage() {
+export default function TestScriptDomInspectorPage() {
   const navigate = useNavigate();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [url, setUrl] = useState('');
@@ -202,7 +202,7 @@ export default function TestCaseDomInspectorPage() {
         </div>
         <button
           type="button"
-          onClick={() => navigate('/test-case/code-review')}
+          onClick={() => navigate('/test-script/code-review')}
           disabled={elements.length === 0}
           className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:from-indigo-700 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
         >

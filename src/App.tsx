@@ -19,13 +19,13 @@ import RepairHistoryPage from './pages/RepairHistoryPage';
 import SelfHealingAnalyticsPage from './pages/SelfHealingAnalyticsPage';
 import TestCaseStoriesPage from './pages/TestCaseStoriesPage';
 import TestCaseGherkinPage from './pages/TestCaseGherkinPage';
-import TestCaseSetupPage from './pages/TestCaseSetupPage';
-import TestCaseDomInspectorPage from './pages/TestCaseDomInspectorPage';
-import TestCaseCodeReviewPage from './pages/TestCaseCodeReviewPage';
-import TestCaseSuiteEditorPage from './pages/TestCaseSuiteEditorPage';
-import TestCaseExecutionPage from './pages/TestCaseExecutionPage';
-import TestCaseGitHubSettingsPage from './pages/TestCaseGitHubSettingsPage';
 import TestCaseAgentExplorerPage from './pages/TestCaseAgentExplorerPage';
+import TestScriptSetupPage from './pages/TestScriptSetupPage';
+import TestScriptDomInspectorPage from './pages/TestScriptDomInspectorPage';
+import TestScriptCodeReviewPage from './pages/TestScriptCodeReviewPage';
+import TestScriptSuiteEditorPage from './pages/TestScriptSuiteEditorPage';
+import TestScriptExecutionPage from './pages/TestScriptExecutionPage';
+import TestScriptGitHubSettingsPage from './pages/TestScriptGitHubSettingsPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -43,6 +43,13 @@ const SelfHealingRoute = ({ title, children }: { title: string; children: React.
 const TestCaseRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <ProtectedRoute>
     <DashboardLayout activeView="test-case" title={title} showTestCaseCrumbs>
+      {children}
+    </DashboardLayout>
+  </ProtectedRoute>
+);
+const TestScriptRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <DashboardLayout activeView="test-script" title={title} showTestScriptCrumbs>
       {children}
     </DashboardLayout>
   </ProtectedRoute>
@@ -167,59 +174,59 @@ function App() {
             }
           />
           <Route
-            path="/test-case/setup"
-            element={
-              <TestCaseRoute title="Mode & URL Setup">
-                <TestCaseSetupPage />
-              </TestCaseRoute>
-            }
-          />
-          <Route
-            path="/test-case/dom-inspector"
-            element={
-              <TestCaseRoute title="DOM Inspector">
-                <TestCaseDomInspectorPage />
-              </TestCaseRoute>
-            }
-          />
-          <Route
-            path="/test-case/code-review"
-            element={
-              <TestCaseRoute title="Code Review">
-                <TestCaseCodeReviewPage />
-              </TestCaseRoute>
-            }
-          />
-          <Route
-            path="/test-case/code-review/:suiteId"
-            element={
-              <TestCaseRoute title="Suite Editor">
-                <TestCaseSuiteEditorPage />
-              </TestCaseRoute>
-            }
-          />
-          <Route
-            path="/test-case/execution"
-            element={
-              <TestCaseRoute title="Execution & Report">
-                <TestCaseExecutionPage />
-              </TestCaseRoute>
-            }
-          />
-          <Route
-            path="/test-case/settings/github"
-            element={
-              <TestCaseRoute title="GitHub Connection">
-                <TestCaseGitHubSettingsPage />
-              </TestCaseRoute>
-            }
-          />
-          <Route
             path="/test-case/agent-explorer"
             element={
               <TestCaseRoute title="Agent Explorer">
                 <TestCaseAgentExplorerPage />
               </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-script"
+            element={
+              <TestScriptRoute title="Mode & URL Setup">
+                <TestScriptSetupPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/dom-inspector"
+            element={
+              <TestScriptRoute title="DOM Inspector">
+                <TestScriptDomInspectorPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/code-review"
+            element={
+              <TestScriptRoute title="Code Review">
+                <TestScriptCodeReviewPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/code-review/:suiteId"
+            element={
+              <TestScriptRoute title="Suite Editor">
+                <TestScriptSuiteEditorPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/execution"
+            element={
+              <TestScriptRoute title="Execution & Report">
+                <TestScriptExecutionPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/settings/github"
+            element={
+              <TestScriptRoute title="GitHub Connection">
+                <TestScriptGitHubSettingsPage />
+              </TestScriptRoute>
             }
           />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />

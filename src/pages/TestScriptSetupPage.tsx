@@ -19,7 +19,7 @@ const frameworkMeta: Record<string, { label: string; language: string }> = {
   cypress: { label: 'Cypress', language: 'JavaScript' },
 };
 
-export default function TestCaseSetupPage() {
+export default function TestScriptSetupPage() {
   const navigate = useNavigate();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState<TestCaseMode>('dom');
@@ -70,7 +70,7 @@ export default function TestCaseSetupPage() {
   const handleContinue = () => {
     if (!projectId) return;
     saveTestCaseSetup(projectId, { mode, url: url.trim(), frameworks });
-    navigate(mode === 'dom' ? '/test-case/dom-inspector' : '/test-case/code-review');
+    navigate(mode === 'dom' ? '/test-script/dom-inspector' : '/test-script/code-review');
   };
 
   return (

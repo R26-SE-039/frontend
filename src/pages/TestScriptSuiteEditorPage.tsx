@@ -13,7 +13,7 @@ const monacoLanguage = (language: string): string => {
   return 'javascript';
 };
 
-export default function TestCaseSuiteEditorPage() {
+export default function TestScriptSuiteEditorPage() {
   const navigate = useNavigate();
   const { suiteId } = useParams<{ suiteId: string }>();
   const [suite, setSuite] = useState<TestSuite | null>(null);
@@ -90,7 +90,7 @@ export default function TestCaseSuiteEditorPage() {
       const created = await testCaseApi.saveTestSuiteAsNewVersion(viewed.id, code);
       applyHead(created);
       setHistory(await testCaseApi.getTestSuiteHistory(created.id));
-      navigate(`/test-case/code-review/${created.id}`, { replace: true });
+      navigate(`/test-script/code-review/${created.id}`, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to save a new version');
     } finally {
@@ -106,7 +106,7 @@ export default function TestCaseSuiteEditorPage() {
       const restored = await testCaseApi.restoreTestSuiteVersion(viewed.id);
       applyHead(restored);
       setHistory(await testCaseApi.getTestSuiteHistory(restored.id));
-      navigate(`/test-case/code-review/${restored.id}`, { replace: true });
+      navigate(`/test-script/code-review/${restored.id}`, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to restore this version');
     } finally {
@@ -159,7 +159,7 @@ export default function TestCaseSuiteEditorPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate('/test-case/code-review')}
+            onClick={() => navigate('/test-script/code-review')}
             className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition hover:text-indigo-600"
           >
             <ArrowLeft size={16} />

@@ -12,7 +12,7 @@ const frameworkLabels: Record<string, string> = {
   cypress: 'Cypress',
 };
 
-export default function TestCaseCodeReviewPage() {
+export default function TestScriptCodeReviewPage() {
   const navigate = useNavigate();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [setup, setSetup] = useState<TestCaseSetup | null>(null);
@@ -180,7 +180,7 @@ export default function TestCaseCodeReviewPage() {
                 </label>
                 <button
                   type="button"
-                  onClick={() => navigate(`/test-case/code-review/${suite.id}`)}
+                  onClick={() => navigate(`/test-script/code-review/${suite.id}`)}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-black text-indigo-600 transition hover:bg-indigo-100"
                 >
                   Open Editor <ArrowRight size={12} />
@@ -195,7 +195,7 @@ export default function TestCaseCodeReviewPage() {
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => navigate('/test-case/execution')}
+            onClick={() => navigate('/test-script/execution')}
             className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:from-indigo-700 hover:to-purple-700"
           >
             Continue to Execution <ArrowRight size={14} />

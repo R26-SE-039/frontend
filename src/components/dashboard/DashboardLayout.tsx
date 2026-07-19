@@ -91,39 +91,42 @@ export const testCaseLinks = [
     icon: <FileText size={18} />,
   },
   {
-    label: 'Mode & URL Setup',
-    description: 'Pick Abstract or DOM-aware generation and validate the staging URL.',
-    path: '/test-case/setup',
-    icon: <SlidersHorizontal size={18} />,
-  },
-  {
-    label: 'DOM Inspector',
-    description: 'Crawl the staging URL and curate the extracted selectors.',
-    path: '/test-case/dom-inspector',
-    icon: <Search size={18} />,
-  },
-  {
-    label: 'Code Review',
-    description: 'Generate and review executable suites for Selenium, Playwright, and Cypress.',
-    path: '/test-case/code-review',
-    icon: <Code size={18} />,
-  },
-  {
-    label: 'Execution & Report',
-    description: 'Run suites locally or on GitHub Actions and inspect live reports.',
-    path: '/test-case/execution',
-    icon: <Rocket size={18} />,
-  },
-  {
     label: 'Agent Explorer',
     description: 'Let the autonomous agent explore the app and discover scenarios.',
     path: '/test-case/agent-explorer',
     icon: <Bot size={18} />,
   },
+] as const;
+
+export const testScriptLinks = [
+  {
+    label: 'Mode & URL Setup',
+    description: 'Pick Abstract or DOM-aware generation and validate the staging URL.',
+    path: '/test-script',
+    icon: <SlidersHorizontal size={18} />,
+  },
+  {
+    label: 'DOM Inspector',
+    description: 'Crawl the staging URL and curate the extracted selectors.',
+    path: '/test-script/dom-inspector',
+    icon: <Search size={18} />,
+  },
+  {
+    label: 'Code Review',
+    description: 'Generate and review executable suites for Selenium, Playwright, and Cypress.',
+    path: '/test-script/code-review',
+    icon: <Code size={18} />,
+  },
+  {
+    label: 'Execution & Report',
+    description: 'Run suites locally or on GitHub Actions and inspect live reports.',
+    path: '/test-script/execution',
+    icon: <Rocket size={18} />,
+  },
   {
     label: 'GitHub Connection',
     description: 'Link a repository so generated suites can run in CI/CD.',
-    path: '/test-case/settings/github',
+    path: '/test-script/settings/github',
     icon: <GitBranch size={18} />,
   },
 ] as const;
@@ -135,6 +138,7 @@ type DashboardLayoutProps = {
   onModuleSelect?: (view: DashboardViewType) => void;
   showSelfHealingCrumbs?: boolean;
   showTestCaseCrumbs?: boolean;
+  showTestScriptCrumbs?: boolean;
 };
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
@@ -144,6 +148,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onModuleSelect,
   showSelfHealingCrumbs = false,
   showTestCaseCrumbs = false,
+  showTestScriptCrumbs = false,
 }) => {
   const { user, logout, currentProject } = useMeetingStore();
   const navigate = useNavigate();
@@ -167,8 +172,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   const activeTestCasePath = useMemo(() => {
     const exact = testCaseLinks.find((item) => item.path === location.pathname);
+    return exact ? exact.path : '';
+  }, [location.pathname]);
+
+  const activeTestScriptPath = useMemo(() => {
+    const exact = testScriptLinks.find((item) => item.path === location.pathname);
     if (exact) return exact.path;
-    if (location.pathname.startsWith('/test-case/code-review/')) return '/test-case/code-review';
+    if (location.pathname.startsWith('/test-script/code-review/')) return '/test-script/code-review';
     return '';
   }, [location.pathname]);
 
@@ -186,6 +196,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
     if (view === 'test-case') {
       navigate('/test-case');
+      return;
+    }
+
+    if (view === 'test-script') {
+      navigate('/test-script');
       return;
     }
 
@@ -400,6 +415,31 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         type="button"
                         onClick={() => navigate(item.path)}
                         className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${activeTestCasePath === item.path ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:text-indigo-600 border border-slate-200'}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {showTestScriptCrumbs && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                    <button type="button" onClick={() => navigate('/dashboard')} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-blue-600">
+                      <Home size={14} /> Main Dashboard
+                    </button>
+                    <span>/</span>
+                    <button type="button" onClick={() => navigate('/test-script')} className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-emerald-600">
+                      Test Script Gen
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {testScriptLinks.map((item) => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        onClick={() => navigate(item.path)}
+                        className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${activeTestScriptPath === item.path ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:text-emerald-600 border border-slate-200'}`}
                       >
                         {item.label}
                       </button>

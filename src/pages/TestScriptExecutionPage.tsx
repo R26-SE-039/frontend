@@ -61,7 +61,7 @@ const formatDuration = (ms?: number | null): string => {
 const screenshotSrc = (imageUrl: string): string =>
   imageUrl.startsWith('http') ? imageUrl : `${TEST_CASE_API_URL}${imageUrl}`;
 
-export default function TestCaseExecutionPage() {
+export default function TestScriptExecutionPage() {
   const navigate = useNavigate();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selectedSuite, setSelectedSuite] = useState<TestSuite | null>(null);
@@ -251,7 +251,7 @@ export default function TestCaseExecutionPage() {
           <p className="max-w-sm text-xs font-medium text-slate-400">
             Generate suites in Code Review and mark one as “Run this suite” first.
           </p>
-          <button type="button" onClick={() => navigate('/test-case/code-review')} className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 hover:bg-indigo-700">
+          <button type="button" onClick={() => navigate('/test-script/code-review')} className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-200 hover:bg-indigo-700">
             Go to Code Review
           </button>
         </div>
@@ -305,7 +305,7 @@ export default function TestCaseExecutionPage() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => navigate('/test-case/settings/github')}
+                      onClick={() => navigate('/test-script/settings/github')}
                       className="mt-1 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-100"
                     >
                       Open GitHub Connection
