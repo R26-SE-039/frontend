@@ -19,6 +19,8 @@ import RepairHistoryPage from './pages/RepairHistoryPage';
 import SelfHealingAnalyticsPage from './pages/SelfHealingAnalyticsPage';
 import TestCaseStoriesPage from './pages/TestCaseStoriesPage';
 import TestCaseGherkinPage from './pages/TestCaseGherkinPage';
+import TestCaseSetupPage from './pages/TestCaseSetupPage';
+import TestCaseDomInspectorPage from './pages/TestCaseDomInspectorPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -156,6 +158,22 @@ function App() {
             element={
               <TestCaseRoute title="Gherkin Editor">
                 <TestCaseGherkinPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/setup"
+            element={
+              <TestCaseRoute title="Mode & URL Setup">
+                <TestCaseSetupPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/dom-inspector"
+            element={
+              <TestCaseRoute title="DOM Inspector">
+                <TestCaseDomInspectorPage />
               </TestCaseRoute>
             }
           />
