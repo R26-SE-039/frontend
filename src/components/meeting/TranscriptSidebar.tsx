@@ -32,10 +32,11 @@ const getActiveStepIndex = (currentState: string) => {
   return 0;
 };
 
-const getConfidenceScore = (threadId: string, state: string) => {
+const getConfidenceScore = (threadId: string | undefined, state: string) => {
+  const tid = threadId || '';
   let hash = 0;
-  for (let i = 0; i < threadId.length; i++) {
-    hash = threadId.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < tid.length; i++) {
+    hash = tid.charCodeAt(i) + ((hash << 5) - hash);
   }
   const base = Math.abs(hash % 20); // 0 to 19
   const normalized = state.toLowerCase();
@@ -260,12 +261,13 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                     </div>
                                 ) : (
                                     threads.map((thread) => {
-                                        const confidence = getConfidenceScore(thread.thread_id, thread.state);
+                                        const tid = thread.thread_id || thread.id || '';
+                                        const confidence = getConfidenceScore(tid, thread.state);
                                         const stateIndex = getActiveStepIndex(thread.state);
                                         
                                         return (
                                             <motion.div
-                                                key={thread.thread_id}
+                                                key={tid}
                                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                                 className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-4 group hover:border-purple-300 transition-colors"
