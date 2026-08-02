@@ -17,6 +17,7 @@ interface Requirement {
   requirement_text: string;
   requirement_type: string;
   status: string;
+  duplicate_of_id?: string;
 }
 
 interface Conflict {
@@ -26,11 +27,19 @@ interface Conflict {
   conflict_type: string;
   severity: string;
   explanation: string;
+  source_meeting_id?: string;
+  source_meeting_title?: string;
+  suggested_resolution?: string;
+  status?: string;
+  requirement_a_text?: string;
+  requirement_b_text?: string;
+  requirement_a_type?: string;
+  requirement_b_type?: string;
 }
 
 interface Resolution {
   conflict_id: string;
-  resolution_type: 'keep_a' | 'keep_b' | 'merge' | 'dismiss';
+  resolution_type: 'apply_suggestion' | 'keep_a' | 'keep_b' | 'merge' | 'accept_duplicate' | 'dismiss';
   merged_text?: string;
 }
 
@@ -110,18 +119,25 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
     }
   };
 
+  const duplicateReqs = requirements.filter(r => r.status === 'duplicate');
+
   const currentConflict = conflicts[currentConflictIdx];
   const reqA = requirements.find(r => r.id === currentConflict?.requirement_a_id);
   const reqB = requirements.find(r => r.id === currentConflict?.requirement_b_id);
 
-  // Initialize merge text with combined requirement text
-  useEffect(() => {
-    if (reqA && reqB) {
-      setMergeTextInput(`${editedTexts[reqA.id]} AND ${editedTexts[reqB.id]}`);
-    }
-  }, [currentConflictIdx, reqA, reqB]);
+  const textA = (reqA ? editedTexts[reqA.id] : null) || currentConflict?.requirement_a_text || 'Requirement A text unavailable';
+  const textB = (reqB ? editedTexts[reqB.id] : null) || currentConflict?.requirement_b_text || 'Requirement B text unavailable';
 
-  const handleResolve = (type: 'keep_a' | 'keep_b' | 'merge' | 'dismiss') => {
+  // Initialize merge text with combined requirement text or LLM suggestion
+  useEffect(() => {
+    if (currentConflict?.suggested_resolution) {
+      setMergeTextInput(currentConflict.suggested_resolution);
+    } else {
+      setMergeTextInput(`${textA} AND ${textB}`);
+    }
+  }, [currentConflictIdx, currentConflict, textA, textB]);
+
+  const handleResolve = async (type: 'apply_suggestion' | 'keep_a' | 'keep_b' | 'merge' | 'accept_duplicate' | 'dismiss') => {
     if (!currentConflict) return;
 
     const newResolution: Resolution = {
@@ -135,6 +151,32 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
       [currentConflict.id]: newResolution
     }));
 
+    // Perform instant single conflict resolution API call for real-time vector re-embedding & DB update
+    try {
+      await meetingApi.resolveSingleConflict(meetingId, currentConflict.id, {
+        resolution_type: type,
+        edited_text_a: textA,
+        edited_text_b: textB,
+        merged_text: type === 'apply_suggestion' ? currentConflict.suggested_resolution : mergeTextInput,
+      });
+
+      // Instantly refresh requirements & threads from DB so right panel updates with re-embedded vectors!
+      const reqRes = await meetingApi.getRequirements(meetingId);
+      const loadedReqs = reqRes.requirements || [];
+      const loadedThreads: RequirementThread[] = reqRes.threads || [];
+      setRequirements(loadedReqs);
+      setThreads(loadedThreads);
+
+      const textMap: Record<string, string> = {};
+      loadedReqs.forEach((r: Requirement) => {
+        textMap[r.id] = r.requirement_text;
+      });
+      setEditedTexts(textMap);
+
+    } catch (err: any) {
+      console.warn('Single conflict resolution sync failed:', err);
+    }
+
     // Auto-advance to next conflict if available
     if (currentConflictIdx < conflicts.length - 1) {
       setCurrentConflictIdx(prev => prev + 1);
@@ -147,7 +189,6 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
     try {
       const resolutionList = Object.values(resolutions);
 
-      // Compile edited requirements list (only for requirements still active/not discarded)
       const editedList = Object.entries(editedTexts).map(([id, text]) => ({
         requirement_id: id,
         text
@@ -166,15 +207,6 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
     } finally {
       setSaving(false);
     }
-  };
-
-  const getConflictResolutionStatus = (conflictId: string) => {
-    const res = resolutions[conflictId];
-    if (!res) return 'Unresolved';
-    if (res.resolution_type === 'keep_a') return 'Kept Req A';
-    if (res.resolution_type === 'keep_b') return 'Kept Req B';
-    if (res.resolution_type === 'merge') return 'Merged';
-    return 'Dismissed';
   };
 
   if (loading) {
@@ -215,9 +247,16 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
             <div className="flex-grow flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <span className="px-3 py-1 bg-red-50 border border-red-100 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
-                    <AlertTriangle size={12} /> Real-Time Conflicts ({conflicts.length})
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-red-50 border border-red-100 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                      <AlertTriangle size={12} /> Conflicts ({conflicts.length})
+                    </span>
+                    {currentConflict?.source_meeting_title && (
+                      <span className="px-3 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-full text-[10px] font-bold flex items-center gap-1">
+                        Cross-Meeting: {currentConflict.source_meeting_title}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <button
                       disabled={currentConflictIdx === 0}
@@ -239,96 +278,153 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-amber-50/50 border border-amber-200/60 rounded-3xl p-6 mb-8">
+                <div className="bg-amber-50/50 border border-amber-200/60 rounded-3xl p-6 mb-6">
                   <h4 className="text-xs font-black text-amber-800 uppercase tracking-widest mb-2">AI Conflict Explanation</h4>
                   <p className="text-sm text-amber-900 leading-relaxed font-semibold">
                     {currentConflict.explanation}
                   </p>
                 </div>
 
+                {/* 1-Click AI Suggested Resolution Card */}
+                {currentConflict.suggested_resolution && (
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-3xl p-6 mb-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-emerald-600" />
+                        1-Click AI Suggested Resolution
+                      </span>
+                      <span className="text-[9px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-200/60 text-emerald-800">
+                        BA Recommended
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-emerald-950 leading-relaxed mb-4 bg-white/70 p-3.5 rounded-2xl border border-emerald-100">
+                      "{currentConflict.suggested_resolution}"
+                    </p>
+                    <button
+                      onClick={() => handleResolve('apply_suggestion')}
+                      className={`w-full py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all ${resolutions[currentConflict.id]?.resolution_type === 'apply_suggestion'
+                          ? 'bg-emerald-700 text-white shadow-emerald-200'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-100 hover:scale-[1.01]'
+                        }`}
+                    >
+                      <CheckCircle2 size={16} /> Apply Suggested Resolution (1-Click Fix)
+                    </button>
+                  </div>
+                )}
+
+                {/* Duplicate Requirement Handling Card */}
+                {currentConflict.conflict_type === 'duplicate' && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-3xl p-6 mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-purple-900 flex items-center gap-1.5">
+                        🔄 Duplicate Requirement Detected
+                      </span>
+                    </div>
+                    <p className="text-xs text-purple-800 font-medium mb-3">
+                      Requirement B is redundant or duplicate of Requirement A from prior meeting discussions.
+                    </p>
+                    <button
+                      onClick={() => handleResolve('accept_duplicate')}
+                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'accept_duplicate'
+                          ? 'bg-purple-700 text-white'
+                          : 'bg-purple-600 hover:bg-purple-700 text-white'
+                        }`}
+                    >
+                      Mark Requirement B as Duplicate & Keep Req A Active
+                    </button>
+                  </div>
+                )}
+
                 {/* Requirement A & B Comparison */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   {/* Req A Card */}
-                  {reqA && (
-                    <div className={`p-5 rounded-2xl border transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_a'
-                        ? 'border-emerald-500 bg-emerald-50/20'
-                        : 'border-gray-200 bg-gray-50/50'
-                      }`}>
-                      <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block mb-2">Requirement A</span>
-                      {editingReqId === reqA.id ? (
-                        <textarea
-                          value={editedTexts[reqA.id]}
-                          onChange={(e) => setEditedTexts(prev => ({ ...prev, [reqA.id]: e.target.value }))}
-                          onBlur={() => setEditingReqId(null)}
-                          className="w-full text-sm font-semibold p-3 border border-indigo-200 bg-white rounded-xl focus:outline-none focus:border-indigo-400 leading-relaxed"
-                          rows={3}
-                          autoFocus
-                        />
-                      ) : (
-                        <p className="text-sm font-semibold text-gray-800 leading-relaxed min-h-[60px]">
-                          {editedTexts[reqA.id]}
-                        </p>
-                      )}
-                      <div className="mt-4 flex justify-between items-center">
+                  <div className={`p-5 rounded-2xl border transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_a'
+                      ? 'border-emerald-500 bg-emerald-50/20'
+                      : 'border-gray-200 bg-gray-50/50'
+                    }`}>
+                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block mb-2">Requirement A (Current Session)</span>
+                    {reqA && editingReqId === reqA.id ? (
+                      <textarea
+                        value={editedTexts[reqA.id]}
+                        onChange={(e) => setEditedTexts(prev => ({ ...prev, [reqA.id]: e.target.value }))}
+                        onBlur={() => setEditingReqId(null)}
+                        className="w-full text-sm font-semibold p-3 border border-indigo-200 bg-white rounded-xl focus:outline-none focus:border-indigo-400 leading-relaxed"
+                        rows={3}
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="text-sm font-semibold text-gray-800 leading-relaxed min-h-[60px]">
+                        {textA}
+                      </p>
+                    )}
+                    <div className="mt-4 flex justify-between items-center">
+                      {reqA ? (
                         <button
                           onClick={() => setEditingReqId(reqA.id)}
                           className="text-xs text-gray-400 hover:text-indigo-600 font-bold flex items-center gap-1"
                         >
                           <Edit3 size={12} /> Edit
                         </button>
-                        <button
-                          onClick={() => handleResolve('keep_a')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_a'
-                              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-100'
-                              : 'border border-gray-200 text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                          Keep Req A
-                        </button>
-                      </div>
+                      ) : <span />}
+                      <button
+                        onClick={() => handleResolve('keep_a')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_a'
+                            ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-100'
+                            : 'border border-gray-200 text-gray-600 hover:bg-gray-100'
+                          }`}
+                      >
+                        Keep Req A
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                   {/* Req B Card */}
-                  {reqB && (
-                    <div className={`p-5 rounded-2xl border transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_b'
-                        ? 'border-emerald-500 bg-emerald-50/20'
-                        : 'border-gray-200 bg-gray-50/50'
-                      }`}>
-                      <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block mb-2">Requirement B</span>
-                      {editingReqId === reqB.id ? (
-                        <textarea
-                          value={editedTexts[reqB.id]}
-                          onChange={(e) => setEditedTexts(prev => ({ ...prev, [reqB.id]: e.target.value }))}
-                          onBlur={() => setEditingReqId(null)}
-                          className="w-full text-sm font-semibold p-3 border border-indigo-200 bg-white rounded-xl focus:outline-none focus:border-indigo-400 leading-relaxed"
-                          rows={3}
-                          autoFocus
-                        />
-                      ) : (
-                        <p className="text-sm font-semibold text-gray-800 leading-relaxed min-h-[60px]">
-                          {editedTexts[reqB.id]}
-                        </p>
+                  <div className={`p-5 rounded-2xl border transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_b'
+                      ? 'border-emerald-500 bg-emerald-50/20'
+                      : 'border-gray-200 bg-gray-50/50'
+                    }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block">Requirement B</span>
+                      {currentConflict.source_meeting_title && (
+                        <span className="text-[8px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                          {currentConflict.source_meeting_title}
+                        </span>
                       )}
-                      <div className="mt-4 flex justify-between items-center">
+                    </div>
+                    {reqB && editingReqId === reqB.id ? (
+                      <textarea
+                        value={editedTexts[reqB.id]}
+                        onChange={(e) => setEditedTexts(prev => ({ ...prev, [reqB.id]: e.target.value }))}
+                        onBlur={() => setEditingReqId(null)}
+                        className="w-full text-sm font-semibold p-3 border border-indigo-200 bg-white rounded-xl focus:outline-none focus:border-indigo-400 leading-relaxed"
+                        rows={3}
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="text-sm font-semibold text-gray-800 leading-relaxed min-h-[60px]">
+                        {textB}
+                      </p>
+                    )}
+                    <div className="mt-4 flex justify-between items-center">
+                      {reqB ? (
                         <button
                           onClick={() => setEditingReqId(reqB.id)}
                           className="text-xs text-gray-400 hover:text-indigo-600 font-bold flex items-center gap-1"
                         >
                           <Edit3 size={12} /> Edit
                         </button>
-                        <button
-                          onClick={() => handleResolve('keep_b')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_b'
-                              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-100'
-                              : 'border border-gray-200 text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                          Keep Req B
-                        </button>
-                      </div>
+                      ) : <span />}
+                      <button
+                        onClick={() => handleResolve('keep_b')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_b'
+                            ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-100'
+                            : 'border border-gray-200 text-gray-600 hover:bg-gray-100'
+                          }`}
+                      >
+                        Keep Req B
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Merge and Dismiss Controls */}
@@ -399,8 +495,30 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
           )}
         </section>
 
-        {/* Right Side: Consolidated Requirement Threads Checklist */}
+        {/* Right Side: Consolidated Requirement Threads & Duplicates List */}
         <section className="hidden lg:block w-[45%] bg-gray-50 p-8 overflow-y-auto custom-scrollbar">
+          {/* Duplicate Requirements Badge Section */}
+          {duplicateReqs.length > 0 && (
+            <div className="mb-6 p-5 bg-purple-50/70 border border-purple-200/80 rounded-2xl shadow-sm">
+              <h4 className="text-xs font-black text-purple-900 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                🔄 Auto-Detected Duplicates ({duplicateReqs.length})
+              </h4>
+              <p className="text-[11px] text-purple-800 font-medium mb-3">
+                The following requirements express identical functionality to prior discussions and were automatically linked.
+              </p>
+              <div className="space-y-2">
+                {duplicateReqs.map(dup => (
+                  <div key={dup.id} className="p-3 bg-white border border-purple-100 rounded-xl flex items-center justify-between text-xs">
+                    <span className="font-semibold text-gray-800 line-through opacity-75">{dup.requirement_text}</span>
+                    <span className="text-[9px] font-extrabold px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full shrink-0 ml-2 border border-purple-200">
+                      Duplicate
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="mb-6">
             <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">
               Consolidated Requirement Threads ({threads.length > 0 ? threads.length : requirements.length})

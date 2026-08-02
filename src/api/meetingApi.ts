@@ -21,6 +21,7 @@ export interface JoinMeetingResponse {
   meeting_id: string;
   passcode: string;
   name?: string;
+  title?: string;
   message?: string;
 }
 
@@ -161,6 +162,33 @@ export const meetingApi = {
       const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(errorData.detail || 'Failed to generate user stories from requirements');
     }
+    return response.json();
+  },
+
+  resolveSingleConflict: async (
+    meetingId: string,
+    conflictId: string,
+    payload: {
+      resolution_type: string;
+      edited_text_a?: string;
+      edited_text_b?: string;
+      merged_text?: string;
+    }
+  ) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/conflicts/${conflictId}/resolve`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ conflict_id: conflictId, ...payload }),
+    });
+    if (!response.ok) throw new Error('Failed to resolve conflict');
+    return response.json();
+  },
+
+  getProjectConflicts: async (projectId: string, status: string = 'active') => {
+    const response = await fetch(`${RAG_API_URL}/speech/project/${projectId}/conflicts?status=${status}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch project conflicts');
     return response.json();
   },
 };

@@ -27,7 +27,7 @@ export const DashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [isCreated, setIsCreated] = useState(false);
-  const [inviteDetails, setInviteDetails] = useState<{ id: string, passcode: string, link: string } | null>(null);
+  const [inviteDetails, setInviteDetails] = useState<{ id: string, passcode: string, link: string, title?: string } | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   if (!user || !currentProject) {
@@ -40,7 +40,7 @@ export const DashboardPage: React.FC = () => {
     setError(null);
     try {
       const data = await meetingApi.joinMeeting(meetingId, passcode);
-      setUser({ ...user, meetingId: data.meeting_id });
+      setUser({ ...user, meetingId: data.meeting_id, meetingTitle: data.title || `${user.name}'s Meeting` });
       navigate(`/meeting/${data.meeting_id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to join meeting');
@@ -54,8 +54,9 @@ export const DashboardPage: React.FC = () => {
     setError(null);
     try {
       const scheduledAt = mode === 'scheduled' ? `${date}T${time}` : undefined;
-      const data = await meetingApi.createMeeting(title || (user.name + "'s Meeting"), mode, scheduledAt);
-      setInviteDetails({ id: data.meeting_id, passcode: data.passcode, link: data.invite_link });
+      const meetingTitle = title.trim() || `${user.name}'s Meeting`;
+      const data = await meetingApi.createMeeting(meetingTitle, mode, scheduledAt);
+      setInviteDetails({ id: data.meeting_id, passcode: data.passcode, link: data.invite_link, title: meetingTitle });
       setIsCreated(true);
     } catch (err: any) {
       setError(err.message || 'Failed to create meeting');
@@ -258,7 +259,7 @@ export const DashboardPage: React.FC = () => {
                     inviteDetails={inviteDetails}
                     onLaunch={() => { 
                       if (inviteDetails) {
-                        setUser({ ...user, meetingId: inviteDetails.id }); 
+                        setUser({ ...user, meetingId: inviteDetails.id, meetingTitle: inviteDetails.title || `${user.name}'s Meeting` }); 
                         navigate(`/meeting/${inviteDetails.id}`); 
                       }
                     }}

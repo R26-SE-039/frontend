@@ -39,6 +39,11 @@ export interface ConflictEntry {
   conflict_type: string;
   severity: 'low' | 'medium' | 'high';
   explanation: string;
+  source_meeting_id?: string;
+  source_meeting_title?: string;
+  suggested_resolution?: string;
+  requirement_a_text?: string;
+  requirement_b_text?: string;
 }
 
 export interface ThreadEntry {
@@ -81,6 +86,11 @@ const normalizeConflict = (c: any): ConflictEntry => ({
   conflict_type: c.conflict_type || 'functional',
   severity: c.severity || 'medium',
   explanation: c.explanation || '',
+  source_meeting_id: c.source_meeting_id,
+  source_meeting_title: c.source_meeting_title,
+  suggested_resolution: c.suggested_resolution,
+  requirement_a_text: c.requirement_a_text,
+  requirement_b_text: c.requirement_b_text,
 });
 
 
@@ -89,6 +99,7 @@ export interface User {
   name: string;
   email: string;
   meetingId: string;
+  meetingTitle?: string;
   agileRole: string;
   accessToken: string;
   firstName?: string;
@@ -221,16 +232,14 @@ export const useMeetingStore = create<MeetingState>()(
       },
       setCurrentProject: (currentProject) => set({ currentProject }),
       logout: async () => {
-        const token = get().user?.accessToken;
+        const user = get().user;
+        const token = user?.accessToken;
+        const refreshToken = user?.refreshToken;
         set({ user: null, currentProject: null });
         // Clear all state on logout
         localStorage.removeItem('meeting-storage');
-        if (token) {
-          try {
-            await authApi.logout(token);
-          } catch (e) {
-            console.error('Logout API failed:', e);
-          }
+        if (token || refreshToken) {
+          await authApi.logout(token, refreshToken);
         }
       },
       setTheme: (theme) => set({ theme }),
@@ -255,12 +264,18 @@ export const useMeetingStore = create<MeetingState>()(
           p.id === id ? { ...p, isSpeaking } : p
         )
       })),
-      setParticipants: (participants) => set((state) => ({ 
-        participants: participants.map(p => ({
-          ...p,
-          id: p.name === state.user?.name ? 'me' : p.id
-        }))
-      })),
+      setParticipants: (participants) => set((state) => {
+        let assignedMe = false;
+        return {
+          participants: participants.map(p => {
+            if (p.name === state.user?.name && !assignedMe) {
+              assignedMe = true;
+              return { ...p, id: 'me' };
+            }
+            return p;
+          })
+        };
+      }),
 
       addTranscriptEntry: (entry) => set((state) => {
         const lastEntry = state.transcript[state.transcript.length - 1];
