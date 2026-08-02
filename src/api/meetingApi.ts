@@ -191,4 +191,50 @@ export const meetingApi = {
     if (!response.ok) throw new Error('Failed to fetch project conflicts');
     return response.json();
   },
+
+  updateAndRevalidateStory: async (
+    storyId: string,
+    payload: {
+      meeting_id: string;
+      title: string;
+      story: string;
+      acceptance_criteria: string[];
+      priority?: string;
+    }
+  ) => {
+    const response = await fetch(`${RAG_API_URL}/pipeline/user-stories/${storyId}/update`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to update story and re-validate');
+    }
+    return response.json();
+  },
+
+  overrideStoryStatus: async (
+    storyId: string,
+    status: 'Approved' | 'Needs Review' | 'Rejected',
+    meetingId: string,
+    feedback?: string
+  ) => {
+    const response = await fetch(`${RAG_API_URL}/pipeline/user-stories/${storyId}/status`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        meeting_id: meetingId,
+        status,
+        feedback,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to update story status');
+    }
+    return response.json();
+  },
 };
+
+
