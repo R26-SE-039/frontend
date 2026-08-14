@@ -202,41 +202,6 @@ export const DashboardPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <ProfileForm />
-              </motion.div>
-            ) : currentView === 'menu' ? (
-              <OverviewView 
-                userName={user.name}
-                projectName={currentProject.name}
-                agileRole={user.agileRole}
-                navItems={navItems}
-                onModuleSelect={setCurrentView}
-              />
-            ) : (
-              <motion.div
-                key="view"
-                initial={{ opacity: 0, scale: 0.99 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.99 }}
-                className="h-full"
-              >
-                {currentView === 'meeting' && (
-                  <MeetingHubView 
-                    onJoin={handleJoin}
-                    onCreate={handleCreate}
-                    isLoading={isLoading}
-                    error={error}
-                    isCreated={isCreated}
-                    inviteDetails={inviteDetails}
-                    onLaunch={() => { 
-                      if (inviteDetails) {
-                        setUser({ ...user, meetingId: inviteDetails.id, meetingTitle: inviteDetails.title || `${user.name}'s Meeting` }); 
-                        navigate(`/meeting/${inviteDetails.id}`); 
-                      }
-                    }}
-                    onCopy={copyToClipboard}
-                  />
-                )}
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {testScriptLinks.map((item) => (
