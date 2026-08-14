@@ -17,6 +17,15 @@ import FailureDetailsPage from './pages/FailureDetailsPage';
 import HealingActionsPage from './pages/HealingActionsPage';
 import RepairHistoryPage from './pages/RepairHistoryPage';
 import SelfHealingAnalyticsPage from './pages/SelfHealingAnalyticsPage';
+import TestCaseStoriesPage from './pages/TestCaseStoriesPage';
+import TestCaseGherkinPage from './pages/TestCaseGherkinPage';
+import TestCaseAgentExplorerPage from './pages/TestCaseAgentExplorerPage';
+import TestScriptSetupPage from './pages/TestScriptSetupPage';
+import TestScriptDomInspectorPage from './pages/TestScriptDomInspectorPage';
+import TestScriptCodeReviewPage from './pages/TestScriptCodeReviewPage';
+import TestScriptSuiteEditorPage from './pages/TestScriptSuiteEditorPage';
+import TestScriptExecutionPage from './pages/TestScriptExecutionPage';
+import TestScriptGitHubSettingsPage from './pages/TestScriptGitHubSettingsPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -27,6 +36,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const SelfHealingRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <ProtectedRoute>
     <DashboardLayout activeView="self-healing" title={title} showSelfHealingCrumbs>
+      {children}
+    </DashboardLayout>
+  </ProtectedRoute>
+);
+const TestCaseRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <DashboardLayout activeView="test-case" title={title} showTestCaseCrumbs>
+      {children}
+    </DashboardLayout>
+  </ProtectedRoute>
+);
+const TestScriptRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <DashboardLayout activeView="test-script" title={title} showTestScriptCrumbs>
       {children}
     </DashboardLayout>
   </ProtectedRoute>
@@ -132,6 +155,78 @@ function App() {
               <SelfHealingRoute title="Analytics">
                 <SelfHealingAnalyticsPage />
               </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/test-case"
+            element={
+              <TestCaseRoute title="User Stories">
+                <TestCaseStoriesPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/gherkin"
+            element={
+              <TestCaseRoute title="Gherkin Editor">
+                <TestCaseGherkinPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-case/agent-explorer"
+            element={
+              <TestCaseRoute title="Agent Explorer">
+                <TestCaseAgentExplorerPage />
+              </TestCaseRoute>
+            }
+          />
+          <Route
+            path="/test-script"
+            element={
+              <TestScriptRoute title="Mode & URL Setup">
+                <TestScriptSetupPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/dom-inspector"
+            element={
+              <TestScriptRoute title="DOM Inspector">
+                <TestScriptDomInspectorPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/code-review"
+            element={
+              <TestScriptRoute title="Code Review">
+                <TestScriptCodeReviewPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/code-review/:suiteId"
+            element={
+              <TestScriptRoute title="Suite Editor">
+                <TestScriptSuiteEditorPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/execution"
+            element={
+              <TestScriptRoute title="Execution & Report">
+                <TestScriptExecutionPage />
+              </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/test-script/settings/github"
+            element={
+              <TestScriptRoute title="GitHub Connection">
+                <TestScriptGitHubSettingsPage />
+              </TestScriptRoute>
             }
           />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
