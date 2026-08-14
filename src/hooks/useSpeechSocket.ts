@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createWorkletBlobUrl } from '../utils/audioWorkletProcessor';
 import { useMeetingStore } from '../store/useMeetingStore';
+import { meetingApi } from '../api/meetingApi';
 
 import { WS_BASE_URL } from '../api/config';
 
@@ -177,6 +178,19 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
                         break;
                     case 'conflicts':
                         addConflicts(data);
+                        break;
+                    case 'THREAD_CREATED':
+                    case 'THREAD_UPDATED':
+                    case 'THREAD_STATE_CHANGED':
+                        if (user?.meetingId) {
+                            meetingApi.getThreads(user.meetingId)
+                                .then(res => {
+                                    if (res.status === 'success') {
+                                        useMeetingStore.getState().setThreads(res.threads);
+                                    }
+                                })
+                                .catch(err => console.error('Failed to refetch threads:', err));
+                        }
                         break;
                     case 'error':
                         console.error('[WS] Backend error:', data.message);

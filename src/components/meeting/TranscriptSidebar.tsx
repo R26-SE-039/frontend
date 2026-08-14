@@ -1,7 +1,10 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight, ListChecks, AlertTriangle } from 'lucide-react';
-import { TranscriptEntry, RequirementEntry, ConflictEntry } from '../../store/useMeetingStore';
+import { 
+  MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight, ListChecks, AlertTriangle,
+  Clock, User, Sparkles, CheckCircle2, HelpCircle, Check, Calendar
+} from 'lucide-react';
+import { TranscriptEntry, RequirementEntry, ConflictEntry, useMeetingStore } from '../../store/useMeetingStore';
 
 interface TranscriptSidebarProps {
     transcript: TranscriptEntry[];
@@ -12,7 +15,49 @@ interface TranscriptSidebarProps {
     onClose?: () => void;
 }
 
+
+const STATES = [
+  { value: 'DISCOVERED', label: 'Discovered Requirement', shortLabel: 'Discovered' },
+  { value: 'DISCUSSION', label: 'In Discussion', shortLabel: 'Discussion' },
+  { value: 'REFINED', label: 'Refined Details', shortLabel: 'Refined' },
+  { value: 'VALIDATED', label: 'Validated Requirement', shortLabel: 'Validated' }
+];
+
+const getActiveStepIndex = (currentState: string) => {
+  const normalized = (currentState || '').toUpperCase();
+  if (normalized === 'DISCOVERED' || normalized === 'CANDIDATE') return 0;
+  if (normalized === 'DISCUSSION' || normalized === 'CLARIFICATION_NEEDED') return 1;
+  if (normalized === 'REFINED' || normalized === 'CONFIRMED') return 2;
+  if (normalized === 'VALIDATED' || normalized === 'APPROVED') return 3;
+  return 0;
+};
+
+const getConfidenceScore = (threadId: string | undefined, state: string) => {
+  const tid = threadId || '';
+  let hash = 0;
+  for (let i = 0; i < tid.length; i++) {
+    hash = tid.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const base = Math.abs(hash % 20); // 0 to 19
+  const normalized = (state || '').toUpperCase();
+  if (normalized === 'VALIDATED' || normalized === 'APPROVED') return 85 + base;
+  if (normalized === 'REFINED' || normalized === 'CONFIRMED') return 75 + base;
+  if (normalized === 'DISCUSSION') return 55 + base;
+  return 35 + base;
+};
+
+const formatLastUpdated = (dateStr?: string) => {
+  if (!dateStr) return 'Just now';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return 'Just now';
+  }
+};
+
 export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript, requirements = [], conflicts = [], clearTranscript, acousticFeatures, onClose }) => {
+    const threads = useMeetingStore(state => state.threads);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
     const requirementsEndRef = useRef<HTMLDivElement>(null);
     const conflictsEndRef = useRef<HTMLDivElement>(null);
@@ -106,9 +151,9 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                             }`}
                         >
                             Req's
-                            {requirements.length > 0 && (
+                            {threads.length > 0 && (
                                 <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full text-[9px]">
-                                    {requirements.length}
+                                    {threads.length}
                                 </span>
                             )}
                         </button>
@@ -209,38 +254,117 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 exit={{ opacity: 0 }}
                                 className="space-y-4"
                             >
-                                {requirements.length === 0 ? (
+                                {threads.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
                                         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><ListChecks size={32} className="text-gray-400" /></div>
                                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Awaiting Requirements...</p>
                                     </div>
                                 ) : (
-                                    requirements.map((req) => (
-                                        <motion.div
-                                            key={req.requirement_id}
-                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-2 group hover:border-purple-300 transition-colors"
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                                    req.requirement_type.toLowerCase().includes('non') 
-                                                        ? 'bg-orange-100 text-orange-600' 
-                                                        : 'bg-green-100 text-green-600'
-                                                }`}>
-                                                    {req.requirement_type}
-                                                </span>
-                                                {req.status === 'conflicted' && (
-                                                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-500 flex items-center gap-1">
-                                                        <AlertTriangle size={9} /> Conflicted
+                                    threads.map((thread) => {
+                                        const tid = thread.thread_id || thread.id || '';
+                                        const stateName = (thread.state || 'DISCOVERED').toUpperCase();
+                                        const stateIndex = getActiveStepIndex(stateName);
+                                        
+                                        return (
+                                            <motion.div
+                                                key={tid}
+                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-4 group hover:border-purple-300 transition-colors text-left"
+                                            >
+                                                {/* Header info */}
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="space-y-1">
+                                                        <h4 className="text-sm font-bold text-gray-900 leading-tight">
+                                                            {thread.requirement_title || thread.topic_label || thread.thread_label || 'Requirement Thread'}
+                                                        </h4>
+                                                        <div className="flex items-center gap-2 text-[10px] text-gray-400 font-semibold">
+                                                            <span className="flex items-center gap-1">
+                                                                <User size={10} /> {thread.created_by || 'Meeting Host'}
+                                                            </span>
+                                                            <span>•</span>
+                                                            <span className="flex items-center gap-1">
+                                                                <Clock size={10} /> {formatLastUpdated(thread.updated_at || thread.created_at)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* State Badge */}
+                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                                                        stateName === 'VALIDATED' || stateName === 'APPROVED'
+                                                            ? 'bg-green-50 text-green-600 border border-green-100'
+                                                            : stateName === 'REFINED'
+                                                                ? 'bg-purple-50 text-purple-600 border border-purple-100'
+                                                                : stateName === 'DISCUSSION'
+                                                                    ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                                                                    : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                                    }`}>
+                                                        {stateName.replace('_', ' ')}
                                                     </span>
+                                                </div>
+
+                                                {/* Description */}
+                                                <p className="text-xs text-gray-600 leading-relaxed font-medium bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                                                    {thread.summary || thread.summary_text || 'No detailed summary recorded.'}
+                                                </p>
+
+                                                {/* Stepper Visualization */}
+                                                <div className="pt-2 border-t border-gray-100">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">State Lifecycle</p>
+                                                    <div className="flex items-center justify-between relative px-2">
+                                                        {/* Connector line behind steps */}
+                                                        <div className="absolute left-6 right-6 top-2 h-0.5 bg-gray-100 -z-10" />
+                                                        
+                                                        {STATES.map((s, idx) => {
+                                                            const isCompleted = idx < stateIndex;
+                                                            const isActive = idx === stateIndex;
+                                                            
+                                                            return (
+                                                                <div key={s.value} className="flex flex-col items-center gap-1.5 flex-1 relative">
+                                                                    {/* Connecting line progress overlay */}
+                                                                    {idx < stateIndex && idx < STATES.length - 1 && (
+                                                                        <div className="absolute left-[50%] right-[-50%] top-2 h-0.5 bg-purple-500 -z-10" />
+                                                                    )}
+                                                                    
+                                                                    {/* Dot */}
+                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
+                                                                        isCompleted 
+                                                                            ? 'bg-purple-600 text-white shadow-sm shadow-purple-200' 
+                                                                            : isActive
+                                                                                ? 'bg-purple-600 text-white ring-4 ring-purple-100'
+                                                                                : 'bg-white border-2 border-gray-200 text-gray-400'
+                                                                    }`}>
+                                                                        {isCompleted ? <Check size={8} className="stroke-[3]" /> : idx + 1}
+                                                                    </div>
+                                                                    
+                                                                    {/* Step Label */}
+                                                                    <span className={`text-[8px] font-bold uppercase tracking-wider text-center select-none ${
+                                                                        isActive 
+                                                                            ? 'text-purple-600 font-extrabold' 
+                                                                            : isCompleted
+                                                                                ? 'text-gray-700 font-semibold'
+                                                                                : 'text-gray-400 font-medium'
+                                                                    }`}>
+                                                                        {s.shortLabel}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Bottom info */}
+                                                {thread.utterance_text && (
+                                                    <div className="pt-2 border-t border-gray-100 text-[10px]">
+                                                        <div className="p-2 bg-purple-50/50 rounded-lg border border-purple-100 text-[9px] text-gray-500">
+                                                            <span className="font-bold text-purple-700">Source Evidence: </span>
+                                                            "{thread.utterance_text.length > 70 ? thread.utterance_text.slice(0, 70) + '...' : thread.utterance_text}"
+                                                        </div>
+                                                    </div>
                                                 )}
-                                            </div>
-                                            <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                                                {req.requirement_text}
-                                            </p>
-                                        </motion.div>
-                                    ))
+                                            </motion.div>
+                                        );
+                                    })
                                 )}
                                 <div ref={requirementsEndRef} />
                             </motion.div>
@@ -262,31 +386,43 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 ) : (
                                     conflicts.map((conflict, idx) => {
                                         const s = getSeverityStyle(conflict.severity);
+                                        const reqA = requirements.find(r => r.requirement_id === conflict.requirement_a_id || r.id === conflict.requirement_a_id);
+                                        const reqB = requirements.find(r => r.requirement_id === conflict.requirement_b_id || r.id === conflict.requirement_b_id);
+
                                         return (
                                             <motion.div
-                                                key={conflict.conflict_id}
+                                                key={conflict.conflict_id || conflict.id || idx}
                                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                                 transition={{ delay: idx * 0.05 }}
-                                                className={`p-4 rounded-2xl border shadow-sm space-y-3 ${s.card}`}
+                                                className={`p-4 rounded-2xl border shadow-sm space-y-3 text-left ${s.card}`}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`w-2 h-2 rounded-full ${s.dot}`} />
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">
-                                                            {conflict.conflict_type?.replace(/_/g, ' ')}
+                                                            {conflict.conflict_type?.replace(/_/g, ' ')} Conflict
                                                         </span>
                                                     </div>
                                                     <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${s.badge}`}>
                                                         {conflict.severity} severity
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-gray-800 font-medium leading-relaxed bg-white/70 p-3 rounded-xl border border-white/80">
+                                                <p className="text-xs text-gray-800 font-medium leading-relaxed bg-white/80 p-3 rounded-xl border border-white">
+                                                    <span className="font-bold text-red-600 block mb-1">Conflict Analysis:</span>
                                                     {conflict.explanation}
                                                 </p>
-                                                <div className="text-[9px] text-gray-400 font-mono space-y-0.5 pt-1 border-t border-gray-200/50">
-                                                    <p>REQ A: <span className="text-gray-500">{conflict.requirement_a_id.slice(0, 8)}...</span></p>
-                                                    <p>REQ B: <span className="text-gray-500">{conflict.requirement_b_id.slice(0, 8)}...</span></p>
+                                                
+                                                {/* Requirement A vs B comparison */}
+                                                <div className="space-y-2 pt-1 border-t border-gray-200/50 text-[10px]">
+                                                    <div className="p-2 rounded-lg bg-red-100/40 border border-red-200/50">
+                                                        <span className="font-bold text-red-700 block text-[9px] uppercase tracking-wider mb-0.5">Requirement A</span>
+                                                        <p className="text-gray-800 font-medium">{reqA ? reqA.requirement_text : `ID: ${conflict.requirement_a_id.slice(0, 8)}...`}</p>
+                                                    </div>
+                                                    <div className="p-2 rounded-lg bg-red-100/40 border border-red-200/50">
+                                                        <span className="font-bold text-red-700 block text-[9px] uppercase tracking-wider mb-0.5">Requirement B</span>
+                                                        <p className="text-gray-800 font-medium">{reqB ? reqB.requirement_text : `ID: ${conflict.requirement_b_id.slice(0, 8)}...`}</p>
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         );

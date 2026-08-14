@@ -121,6 +121,14 @@ export const meetingApi = {
     return response.json();
   },
 
+  getThreads: async (meetingId: string) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/threads`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch threads');
+    return response.json();
+  },
+
   getConflicts: async (meetingId: string) => {
     const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/conflicts`, {
       headers: getAuthHeaders(),
@@ -129,11 +137,15 @@ export const meetingApi = {
     return response.json();
   },
 
-  finalizeRequirements: async (meetingId: string, resolutions: any[], editedRequirements: any[]) => {
+  finalizeRequirements: async (meetingId: string, resolutions: any[], editedRequirements: any[], editedThreads: any[] = []) => {
     const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/requirements/finalize`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ resolutions, edited_requirements: editedRequirements }),
+      body: JSON.stringify({
+        resolutions,
+        edited_requirements: editedRequirements,
+        edited_threads: editedThreads
+      }),
     });
     if (!response.ok) throw new Error('Failed to finalize requirements');
     return response.json();

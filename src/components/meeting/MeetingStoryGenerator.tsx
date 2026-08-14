@@ -225,6 +225,40 @@ export const MeetingStoryGenerator: React.FC<MeetingStoryGeneratorProps> = ({ me
                       <p className="text-gray-500 text-sm leading-relaxed font-medium">{story.story}</p>
                     </div>
 
+                    {/* INVEST Quality Assessment Grid */}
+                    <div className="mb-6 p-3 rounded-2xl bg-gray-50/70 border border-gray-100 flex items-center justify-between">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                        <Sparkles size={11} className="text-indigo-500" /> INVEST Quality
+                      </span>
+                      <div className="flex gap-1">
+                        {[
+                          { key: 'Independent', label: 'I', desc: 'Independent' },
+                          { key: 'Negotiable', label: 'N', desc: 'Negotiable' },
+                          { key: 'Valuable', label: 'V', desc: 'Valuable' },
+                          { key: 'Estimable', label: 'E', desc: 'Estimable' },
+                          { key: 'Small', label: 'S', desc: 'Small' },
+                          { key: 'Testable', label: 'T', desc: 'Testable' },
+                        ].map((item) => {
+                          const isPassed = story.invest_validation 
+                            ? (story.invest_validation as any)[item.key] !== false 
+                            : true;
+                          return (
+                            <div
+                              key={item.key}
+                              title={`${item.desc}: ${isPassed ? 'Passed' : 'Needs Review'}`}
+                              className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black uppercase transition-all cursor-help ${
+                                isPassed
+                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/60'
+                                  : 'bg-red-50 text-red-600 border border-red-200/60'
+                              }`}
+                            >
+                              {item.label}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-50 group-hover:border-indigo-50 transition-colors">
                       <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                         <CheckCircle2 size={12} className="text-indigo-400" />

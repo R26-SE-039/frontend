@@ -1,5 +1,14 @@
 import { RAG_API_URL } from './config';
 
+export interface InvestValidation {
+  Independent?: boolean;
+  Negotiable?: boolean;
+  Valuable?: boolean;
+  Estimable?: boolean;
+  Small?: boolean;
+  Testable?: boolean;
+}
+
 export interface GeneratedStory {
   story_id: string;
   title: string;
@@ -10,6 +19,7 @@ export interface GeneratedStory {
   status: string;
   clarification_questions: string[];
   evidence_refs: string[];
+  invest_validation?: InvestValidation;
 }
 
 export interface StoryIssue {

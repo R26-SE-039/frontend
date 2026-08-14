@@ -23,6 +23,7 @@ export interface TranscriptEntry {
 }
 
 export interface RequirementEntry {
+  id?: string;
   requirement_id: string;
   meeting_id?: string;
   requirement_text: string;
@@ -31,6 +32,7 @@ export interface RequirementEntry {
 }
 
 export interface ConflictEntry {
+  id?: string;
   conflict_id: string;
   requirement_a_id: string;
   requirement_b_id: string;
@@ -38,6 +40,49 @@ export interface ConflictEntry {
   severity: 'low' | 'medium' | 'high';
   explanation: string;
 }
+
+export interface ThreadEntry {
+  id?: string;
+  thread_id?: string;
+  meeting_id: string;
+  requirement_title?: string;
+  summary?: string;
+  thread_label?: string;
+  summary_text?: string;
+  summary_embedding?: number[];
+  topic_label?: string;
+  entities?: string[];
+  state: string;
+  requirement_id?: string | null;
+  last_activity_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  classification_confidence?: number;
+  match_confidence?: number;
+  created_by?: string;
+  timestamp?: string;
+  utterance_text?: string;
+}
+
+const normalizeRequirement = (r: any): RequirementEntry => ({
+  id: r.id,
+  requirement_id: r.requirement_id || r.id || '',
+  meeting_id: r.meeting_id,
+  requirement_text: r.requirement_text || r.text || '',
+  requirement_type: r.requirement_type || r.type || 'functional',
+  status: r.status || 'active',
+});
+
+const normalizeConflict = (c: any): ConflictEntry => ({
+  id: c.id,
+  conflict_id: c.conflict_id || c.id || '',
+  requirement_a_id: c.requirement_a_id,
+  requirement_b_id: c.requirement_b_id,
+  conflict_type: c.conflict_type || 'functional',
+  severity: c.severity || 'medium',
+  explanation: c.explanation || '',
+});
+
 
 export interface User {
   id: string;
@@ -125,13 +170,20 @@ interface MeetingState {
 
   // Requirements
   requirements: RequirementEntry[];
+  setRequirements: (reqs: RequirementEntry[]) => void;
   addRequirements: (reqs: RequirementEntry[]) => void;
   clearRequirements: () => void;
 
   // Conflicts
   conflicts: ConflictEntry[];
+  setConflicts: (conflicts: ConflictEntry[]) => void;
   addConflicts: (conflicts: ConflictEntry[]) => void;
   clearConflicts: () => void;
+
+  // Discussion Threads
+  threads: ThreadEntry[];
+  setThreads: (threads: ThreadEntry[]) => void;
+  clearThreads: () => void;
 }
 
 export const useMeetingStore = create<MeetingState>()(
@@ -155,6 +207,8 @@ export const useMeetingStore = create<MeetingState>()(
       chatMessages: [],
       requirements: [],
       conflicts: [],
+      threads: [],
+
 
       // Actions
       setUser: (user) => {
@@ -256,23 +310,36 @@ export const useMeetingStore = create<MeetingState>()(
 
       clearChat: () => set({ chatMessages: [] }),
 
-      addRequirements: (reqs) => set((state) => ({
-        requirements: [
-          ...state.requirements,
-          ...reqs.filter(r => !state.requirements.find(existing => existing.requirement_id === r.requirement_id))
-        ]
-      })),
+      setRequirements: (reqs) => set({
+        requirements: reqs.map(normalizeRequirement)
+      }),
+
+      addRequirements: (reqs) => set((state) => {
+        const normalized = reqs.map(normalizeRequirement);
+        const map = new Map<string, RequirementEntry>();
+        state.requirements.forEach(r => map.set(r.requirement_id, r));
+        normalized.forEach(r => map.set(r.requirement_id, r));
+        return { requirements: Array.from(map.values()) };
+      }),
 
       clearRequirements: () => set({ requirements: [] }),
 
-      addConflicts: (conflicts) => set((state) => ({
-        conflicts: [
-          ...state.conflicts,
-          ...conflicts.filter(c => !state.conflicts.find(existing => existing.conflict_id === c.conflict_id))
-        ]
-      })),
+      setConflicts: (conflicts) => set({
+        conflicts: conflicts.map(normalizeConflict)
+      }),
+
+      addConflicts: (conflicts) => set((state) => {
+        const normalized = conflicts.map(normalizeConflict);
+        const map = new Map<string, ConflictEntry>();
+        state.conflicts.forEach(c => map.set(c.conflict_id, c));
+        normalized.forEach(c => map.set(c.conflict_id, c));
+        return { conflicts: Array.from(map.values()) };
+      }),
 
       clearConflicts: () => set({ conflicts: [] }),
+
+      setThreads: (threads) => set({ threads }),
+      clearThreads: () => set({ threads: [] }),
     }),
     {
       name: 'meeting-storage',

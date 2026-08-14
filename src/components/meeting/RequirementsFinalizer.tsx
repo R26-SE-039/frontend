@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  AlertTriangle, Sparkles, Check, CheckCircle2, ChevronRight, ChevronLeft, 
-  Edit3, Trash2, HelpCircle, ArrowRight, Loader2, Play 
+import {
+  AlertTriangle, Sparkles, Check, CheckCircle2, ChevronRight, ChevronLeft,
+  Edit3, Trash2, HelpCircle, ArrowRight, Loader2, Play
 } from 'lucide-react';
 import { meetingApi } from '../../api/meetingApi';
 
@@ -34,6 +34,19 @@ interface Resolution {
   merged_text?: string;
 }
 
+interface RequirementThread {
+  topic_label: string | undefined;
+  id?: string;
+  thread_id?: string;
+  meeting_id?: string;
+  requirement_title?: string;
+  summary?: string;
+  thread_label?: string;
+  summary_text?: string;
+  state?: string;
+  created_at?: string;
+}
+
 export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
   meetingId,
   onBack,
@@ -41,11 +54,14 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [threads, setThreads] = useState<RequirementThread[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [currentConflictIdx, setCurrentConflictIdx] = useState(0);
   const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
   const [editedTexts, setEditedTexts] = useState<Record<string, string>>({});
+  const [editedThreads, setEditedThreads] = useState<Record<string, { summary: string; action: 'VALIDATED' | 'DISCARDED' }>>({});
   const [editingReqId, setEditingReqId] = useState<string | null>(null);
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [mergeTextInput, setMergeTextInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,16 +76,33 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
     try {
       const reqRes = await meetingApi.getRequirements(meetingId);
       const confRes = await meetingApi.getConflicts(meetingId);
-      
-      setRequirements(reqRes.requirements || []);
+
+      const loadedReqs = reqRes.requirements || [];
+      const loadedThreads: RequirementThread[] = reqRes.threads || [];
+
+      setRequirements(loadedReqs);
+      setThreads(loadedThreads);
       setConflicts(confRes.conflicts || []);
-      
-      // Initialize edited text cache
+
+      // Initialize raw requirement edited text cache
       const textMap: Record<string, string> = {};
-      reqRes.requirements?.forEach((r: Requirement) => {
+      loadedReqs.forEach((r: Requirement) => {
         textMap[r.id] = r.requirement_text;
       });
       setEditedTexts(textMap);
+
+      // Initialize thread edits map
+      const threadEditMap: Record<string, { summary: string; action: 'VALIDATED' | 'DISCARDED' }> = {};
+      loadedThreads.forEach(t => {
+        const tid = t.thread_id || t.id || '';
+        if (tid) {
+          threadEditMap[tid] = {
+            summary: t.summary || t.summary_text || t.requirement_title || 'Consolidated Requirement',
+            action: t.state === 'DISCARDED' ? 'DISCARDED' : 'VALIDATED'
+          };
+        }
+      });
+      setEditedThreads(threadEditMap);
     } catch (err: any) {
       setError(err.message || 'Failed to load requirements data');
     } finally {
@@ -90,7 +123,7 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
 
   const handleResolve = (type: 'keep_a' | 'keep_b' | 'merge' | 'dismiss') => {
     if (!currentConflict) return;
-    
+
     const newResolution: Resolution = {
       conflict_id: currentConflict.id,
       resolution_type: type,
@@ -113,14 +146,20 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
     setError(null);
     try {
       const resolutionList = Object.values(resolutions);
-      
+
       // Compile edited requirements list (only for requirements still active/not discarded)
       const editedList = Object.entries(editedTexts).map(([id, text]) => ({
         requirement_id: id,
         text
       }));
 
-      await meetingApi.finalizeRequirements(meetingId, resolutionList, editedList);
+      const editedThreadList = Object.entries(editedThreads).map(([tid, data]) => ({
+        thread_id: tid,
+        summary: data.summary,
+        action: data.action
+      }));
+
+      await meetingApi.finalizeRequirements(meetingId, resolutionList, editedList, editedThreadList);
       onFinalized();
     } catch (err: any) {
       setError(err.message || 'Failed to save finalized requirements.');
@@ -148,7 +187,7 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[120] bg-gray-50 flex flex-col overflow-hidden animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[120] bg-gray-50 flex flex-col overflow-hidden animate-in fade-in duration-300 text-left">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
@@ -160,7 +199,7 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Session: {meetingId}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={onBack}
           className="px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-all"
         >
@@ -211,11 +250,10 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   {/* Req A Card */}
                   {reqA && (
-                    <div className={`p-5 rounded-2xl border transition-all ${
-                      resolutions[currentConflict.id]?.resolution_type === 'keep_a' 
-                        ? 'border-emerald-500 bg-emerald-50/20' 
+                    <div className={`p-5 rounded-2xl border transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_a'
+                        ? 'border-emerald-500 bg-emerald-50/20'
                         : 'border-gray-200 bg-gray-50/50'
-                    }`}>
+                      }`}>
                       <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block mb-2">Requirement A</span>
                       {editingReqId === reqA.id ? (
                         <textarea
@@ -240,11 +278,10 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
                         </button>
                         <button
                           onClick={() => handleResolve('keep_a')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                            resolutions[currentConflict.id]?.resolution_type === 'keep_a'
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_a'
                               ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-100'
                               : 'border border-gray-200 text-gray-600 hover:bg-gray-100'
-                          }`}
+                            }`}
                         >
                           Keep Req A
                         </button>
@@ -254,11 +291,10 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
 
                   {/* Req B Card */}
                   {reqB && (
-                    <div className={`p-5 rounded-2xl border transition-all ${
-                      resolutions[currentConflict.id]?.resolution_type === 'keep_b' 
-                        ? 'border-emerald-500 bg-emerald-50/20' 
+                    <div className={`p-5 rounded-2xl border transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_b'
+                        ? 'border-emerald-500 bg-emerald-50/20'
                         : 'border-gray-200 bg-gray-50/50'
-                    }`}>
+                      }`}>
                       <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block mb-2">Requirement B</span>
                       {editingReqId === reqB.id ? (
                         <textarea
@@ -283,11 +319,10 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
                         </button>
                         <button
                           onClick={() => handleResolve('keep_b')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                            resolutions[currentConflict.id]?.resolution_type === 'keep_b'
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'keep_b'
                               ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-100'
                               : 'border border-gray-200 text-gray-600 hover:bg-gray-100'
-                          }`}
+                            }`}
                         >
                           Keep Req B
                         </button>
@@ -311,11 +346,10 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
                     />
                     <button
                       onClick={() => handleResolve('merge')}
-                      className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
-                        resolutions[currentConflict.id]?.resolution_type === 'merge'
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'merge'
                           ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
                           : 'bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50'
-                      }`}
+                        }`}
                     >
                       Merge & Resolve
                     </button>
@@ -323,11 +357,10 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
 
                   <button
                     onClick={() => handleResolve('dismiss')}
-                    className={`w-full py-3 rounded-xl border border-dashed text-xs font-bold transition-all ${
-                      resolutions[currentConflict.id]?.resolution_type === 'dismiss'
+                    className={`w-full py-3 rounded-xl border border-dashed text-xs font-bold transition-all ${resolutions[currentConflict.id]?.resolution_type === 'dismiss'
                         ? 'border-gray-400 bg-gray-100 text-gray-800'
                         : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:bg-white'
-                    }`}
+                      }`}
                   >
                     Dismiss Conflict (Keep both requirements as separate features)
                   </button>
@@ -341,14 +374,14 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
                 </span>
               </div>
             </div>
-          ) : requirements.length === 0 ? (
+          ) : requirements.length === 0 && threads.length === 0 ? (
             <div className="flex-grow flex flex-col items-center justify-center text-center opacity-70">
               <AlertTriangle size={56} className="text-amber-500 mb-4" />
               <h3 className="text-xl font-bold text-gray-900 mb-1">No Requirements Extracted</h3>
               <p className="text-sm text-gray-500 max-w-xs mb-4">
                 We couldn't extract any requirements. This can happen if there was an API credit issue or if the meeting conversation didn't mention specific system features.
               </p>
-              <button 
+              <button
                 onClick={onBack}
                 className="px-6 py-2 bg-gray-900 hover:bg-black text-white font-bold rounded-xl text-xs"
               >
@@ -366,68 +399,162 @@ export const RequirementsFinalizer: React.FC<RequirementsFinalizerProps> = ({
           )}
         </section>
 
-        {/* Right Side: Overall Requirements List Dashboard */}
+        {/* Right Side: Consolidated Requirement Threads Checklist */}
         <section className="hidden lg:block w-[45%] bg-gray-50 p-8 overflow-y-auto custom-scrollbar">
           <div className="mb-6">
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">Meeting Requirements Checklist</h3>
-            <p className="text-xs text-gray-500 font-semibold">Review or edit all extracted requirements below.</p>
+            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest mb-1">
+              Consolidated Requirement Threads ({threads.length > 0 ? threads.length : requirements.length})
+            </h3>
+            <p className="text-xs text-gray-500 font-semibold">
+              Review, edit summary, or mark requirement threads as Approved (Validated) or Discarded.
+            </p>
           </div>
 
           <div className="space-y-4">
-            {requirements.map((req) => {
-              const isEdited = editedTexts[req.id] !== req.requirement_text;
-              const isConflicted = req.status === 'conflicted';
-              return (
-                <div 
-                  key={req.id}
-                  className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative group hover:border-gray-300 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                      req.requirement_type.toLowerCase().includes('non')
-                        ? 'bg-orange-50 text-orange-600 border border-orange-100'
-                        : 'bg-green-50 text-green-600 border border-green-100'
-                    }`}>
-                      {req.requirement_type}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {isConflicted && (
-                        <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-500 border border-red-100 flex items-center gap-1">
-                          <AlertTriangle size={8} /> Conflict
+            {threads.length > 0 ? (
+              threads.map((t) => {
+                const tid = t.thread_id || t.id || '';
+                const currentEdit = editedThreads[tid] || {
+                  summary: t.summary || t.summary_text || t.requirement_title || '',
+                  action: 'VALIDATED'
+                };
+                const isDiscarded = currentEdit.action === 'DISCARDED';
+
+                return (
+                  <div
+                    key={tid}
+                    className={`bg-white p-5 rounded-2xl border transition-all shadow-sm space-y-3 relative group ${isDiscarded
+                        ? 'border-gray-200 opacity-60 bg-gray-100/60'
+                        : 'border-purple-100 hover:border-purple-300'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                          Requirement Thread
                         </span>
-                      )}
-                      {isEdited && (
-                        <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100">
-                          Edited
-                        </span>
+                        <h4 className={`text-sm font-bold text-gray-900 mt-1 ${isDiscarded ? 'line-through text-gray-400' : ''}`}>
+                          {t.requirement_title || t.topic_label || t.thread_label || 'Consolidated Requirement'}
+                        </h4>
+                      </div>
+
+                      {/* Action buttons: Approved vs Discarded */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setEditedThreads(prev => ({
+                            ...prev,
+                            [tid]: { ...currentEdit, action: 'VALIDATED' }
+                          }))}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${!isDiscarded
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'border border-gray-200 text-gray-500 hover:bg-gray-50'
+                            }`}
+                        >
+                          <Check size={10} /> Approved
+                        </button>
+                        <button
+                          onClick={() => setEditedThreads(prev => ({
+                            ...prev,
+                            [tid]: { ...currentEdit, action: 'DISCARDED' }
+                          }))}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${isDiscarded
+                              ? 'bg-red-600 text-white shadow-sm'
+                              : 'border border-gray-200 text-gray-400 hover:bg-gray-50'
+                            }`}
+                        >
+                          <Trash2 size={10} /> Discard
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Summary Edit Area */}
+                    {editingThreadId === tid ? (
+                      <textarea
+                        value={currentEdit.summary}
+                        onChange={(e) => setEditedThreads(prev => ({
+                          ...prev,
+                          [tid]: { ...currentEdit, summary: e.target.value }
+                        }))}
+                        onBlur={() => setEditingThreadId(null)}
+                        className="w-full text-xs font-medium p-3 border border-purple-200 bg-white rounded-xl focus:outline-none focus:border-purple-400 leading-relaxed"
+                        rows={3}
+                        autoFocus
+                      />
+                    ) : (
+                      <p className={`text-xs text-gray-700 leading-relaxed font-medium bg-gray-50/50 p-3 rounded-xl border border-gray-100 ${isDiscarded ? 'line-through text-gray-400' : ''}`}>
+                        {currentEdit.summary}
+                      </p>
+                    )}
+
+                    <div className="flex justify-between items-center text-[10px] text-gray-400 pt-1">
+                      <span>Status: <strong className={isDiscarded ? 'text-red-500' : 'text-emerald-600'}>{currentEdit.action}</strong></span>
+                      {!isDiscarded && (
+                        <button
+                          onClick={() => setEditingThreadId(tid)}
+                          className="text-purple-600 font-bold hover:underline flex items-center gap-1"
+                        >
+                          <Edit3 size={12} /> Edit Summary
+                        </button>
                       )}
                     </div>
                   </div>
-
-                  {editingReqId === req.id ? (
-                    <textarea
-                      value={editedTexts[req.id]}
-                      onChange={(e) => setEditedTexts(prev => ({ ...prev, [req.id]: e.target.value }))}
-                      onBlur={() => setEditingReqId(null)}
-                      className="w-full text-xs font-semibold p-2 border border-indigo-200 bg-white rounded-lg focus:outline-none"
-                      rows={2}
-                      autoFocus
-                    />
-                  ) : (
-                    <p className="text-xs font-semibold text-gray-800 leading-relaxed pr-6">
-                      {editedTexts[req.id]}
-                    </p>
-                  )}
-
-                  <button
-                    onClick={() => setEditingReqId(req.id)}
-                    className="absolute right-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-indigo-600"
+                );
+              })
+            ) : (
+              requirements.map((req) => {
+                const isEdited = editedTexts[req.id] !== req.requirement_text;
+                const isConflicted = req.status === 'conflicted';
+                return (
+                  <div
+                    key={req.id}
+                    className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative group hover:border-gray-300 transition-colors"
                   >
-                    <Edit3 size={14} />
-                  </button>
-                </div>
-              );
-            })}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${req.requirement_type.toLowerCase().includes('non')
+                          ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                          : 'bg-green-50 text-green-600 border border-green-100'
+                        }`}>
+                        {req.requirement_type}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {isConflicted && (
+                          <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-500 border border-red-100 flex items-center gap-1">
+                            <AlertTriangle size={8} /> Conflict
+                          </span>
+                        )}
+                        {isEdited && (
+                          <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-100">
+                            Edited
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {editingReqId === req.id ? (
+                      <textarea
+                        value={editedTexts[req.id]}
+                        onChange={(e) => setEditedTexts(prev => ({ ...prev, [req.id]: e.target.value }))}
+                        onBlur={() => setEditingReqId(null)}
+                        className="w-full text-xs font-semibold p-2 border border-indigo-200 bg-white rounded-lg focus:outline-none"
+                        rows={2}
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="text-xs font-semibold text-gray-800 leading-relaxed pr-6">
+                        {editedTexts[req.id]}
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => setEditingReqId(req.id)}
+                      className="absolute right-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-indigo-600"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
       </main>
