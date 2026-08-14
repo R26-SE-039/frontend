@@ -20,6 +20,16 @@
 
 /* Midnight (Default Dark) */
 :root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-2: #f1f5f9;
+  --border: #e2e8f0;
+  --muted: #64748b;
+  --accent: #4f46e5;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
   --bg-main: #020617;
   --bg-sidebar: #0f172a;
   --bg-surface: #1e293b;
@@ -117,3 +127,4 @@
   mask-image: linear-gradient(to bottom, transparent, black, transparent);
   -webkit-mask-image: linear-gradient(to bottom, transparent, black, transparent);
 }
+
