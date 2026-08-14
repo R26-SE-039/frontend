@@ -21,6 +21,7 @@ export interface JoinMeetingResponse {
   meeting_id: string;
   passcode: string;
   name?: string;
+  title?: string;
   message?: string;
 }
 
@@ -163,4 +164,77 @@ export const meetingApi = {
     }
     return response.json();
   },
+
+  resolveSingleConflict: async (
+    meetingId: string,
+    conflictId: string,
+    payload: {
+      resolution_type: string;
+      edited_text_a?: string;
+      edited_text_b?: string;
+      merged_text?: string;
+    }
+  ) => {
+    const response = await fetch(`${RAG_API_URL}/speech/meeting/${meetingId}/conflicts/${conflictId}/resolve`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ conflict_id: conflictId, ...payload }),
+    });
+    if (!response.ok) throw new Error('Failed to resolve conflict');
+    return response.json();
+  },
+
+  getProjectConflicts: async (projectId: string, status: string = 'active') => {
+    const response = await fetch(`${RAG_API_URL}/speech/project/${projectId}/conflicts?status=${status}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch project conflicts');
+    return response.json();
+  },
+
+  updateAndRevalidateStory: async (
+    storyId: string,
+    payload: {
+      meeting_id: string;
+      title: string;
+      story: string;
+      acceptance_criteria: string[];
+      priority?: string;
+    }
+  ) => {
+    const response = await fetch(`${RAG_API_URL}/pipeline/user-stories/${storyId}/update`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to update story and re-validate');
+    }
+    return response.json();
+  },
+
+  overrideStoryStatus: async (
+    storyId: string,
+    status: 'Approved' | 'Needs Review' | 'Rejected',
+    meetingId: string,
+    feedback?: string
+  ) => {
+    const response = await fetch(`${RAG_API_URL}/pipeline/user-stories/${storyId}/status`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        meeting_id: meetingId,
+        status,
+        feedback,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to update story status');
+    }
+    return response.json();
+  },
 };
+
+

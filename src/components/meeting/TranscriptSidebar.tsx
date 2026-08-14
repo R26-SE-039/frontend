@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MessageSquare, MoreVertical, Mic, Send, Activity, ChevronRight, ListChecks, AlertTriangle,
-  Clock, User, Sparkles, CheckCircle2, HelpCircle, Check, Calendar
+  MessageSquare, ChevronRight, ListChecks, AlertTriangle,
+  Clock, User, Check, Trash2, Mic
 } from 'lucide-react';
 import { TranscriptEntry, RequirementEntry, ConflictEntry, useMeetingStore } from '../../store/useMeetingStore';
 
@@ -14,7 +14,6 @@ interface TranscriptSidebarProps {
     acousticFeatures?: { pitch: number; energy: number };
     onClose?: () => void;
 }
-
 
 const STATES = [
   { value: 'DISCOVERED', label: 'Discovered Requirement', shortLabel: 'Discovered' },
@@ -32,20 +31,6 @@ const getActiveStepIndex = (currentState: string) => {
   return 0;
 };
 
-const getConfidenceScore = (threadId: string | undefined, state: string) => {
-  const tid = threadId || '';
-  let hash = 0;
-  for (let i = 0; i < tid.length; i++) {
-    hash = tid.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const base = Math.abs(hash % 20); // 0 to 19
-  const normalized = (state || '').toUpperCase();
-  if (normalized === 'VALIDATED' || normalized === 'APPROVED') return 85 + base;
-  if (normalized === 'REFINED' || normalized === 'CONFIRMED') return 75 + base;
-  if (normalized === 'DISCUSSION') return 55 + base;
-  return 35 + base;
-};
-
 const formatLastUpdated = (dateStr?: string) => {
   if (!dateStr) return 'Just now';
   try {
@@ -56,7 +41,13 @@ const formatLastUpdated = (dateStr?: string) => {
   }
 };
 
-export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript, requirements = [], conflicts = [], clearTranscript, acousticFeatures, onClose }) => {
+export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ 
+    transcript, 
+    requirements = [], 
+    conflicts = [], 
+    clearTranscript, 
+    onClose 
+}) => {
     const threads = useMeetingStore(state => state.threads);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
     const requirementsEndRef = useRef<HTMLDivElement>(null);
@@ -73,101 +64,94 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
         }
     }, [transcript, requirements, conflicts, activeTab]);
 
-    const getTabIcon = () => {
-        if (activeTab === 'transcript') return <MessageSquare size={20} />;
-        if (activeTab === 'requirements') return <ListChecks size={20} />;
-        return <AlertTriangle size={20} />;
-    };
-
-    const getTabTitle = () => {
-        if (activeTab === 'transcript') return 'Transcription';
-        if (activeTab === 'requirements') return 'Requirements';
-        return 'Conflicts';
-    };
-
-    const getTabIconBg = () => {
-        if (activeTab === 'transcript') return 'bg-blue-50 text-blue-600';
-        if (activeTab === 'requirements') return 'bg-purple-50 text-purple-600';
-        return 'bg-red-50 text-red-600';
-    };
-
     const getSeverityStyle = (severity: string) => {
         switch (severity?.toLowerCase()) {
-            case 'high': return { badge: 'bg-red-100 text-red-600 border border-red-200', dot: 'bg-red-500', card: 'border-red-200 bg-red-50/30' };
-            case 'medium': return { badge: 'bg-orange-100 text-orange-600 border border-orange-200', dot: 'bg-orange-500', card: 'border-orange-200 bg-orange-50/30' };
-            default: return { badge: 'bg-yellow-100 text-yellow-600 border border-yellow-200', dot: 'bg-yellow-500', card: 'border-yellow-200 bg-yellow-50/30' };
+            case 'high': return { badge: 'bg-red-50 text-red-700 border border-red-200', dot: 'bg-red-500', card: 'border-red-200 bg-red-50/20' };
+            case 'medium': return { badge: 'bg-amber-50 text-amber-700 border border-amber-200', dot: 'bg-amber-500', card: 'border-amber-200 bg-amber-50/20' };
+            default: return { badge: 'bg-yellow-50 text-yellow-700 border border-yellow-200', dot: 'bg-yellow-500', card: 'border-yellow-200 bg-yellow-50/20' };
         }
     };
 
     return (
         <aside className="w-full h-full lg:w-80 xl:w-96 flex flex-col gap-4">
-            <div className="flex-grow bg-white rounded-3xl border border-gray-200 flex flex-col overflow-hidden shadow-sm">
-                <div className="p-4 border-b border-gray-100 flex flex-col gap-4">
+            <div className="flex-grow bg-white rounded-2xl border border-gray-200 flex flex-col overflow-hidden shadow-sm">
+                {/* Clean Enterprise Header */}
+                <div className="p-4 border-b border-gray-100 bg-white flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getTabIconBg()}`}>
-                                {getTabIcon()}
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                                {activeTab === 'transcript' && <MessageSquare size={16} />}
+                                {activeTab === 'requirements' && <ListChecks size={16} />}
+                                {activeTab === 'conflicts' && <AlertTriangle size={16} />}
                             </div>
-                            <div>
-                                <h2 className="font-bold text-gray-900 text-sm">{getTabTitle()}</h2>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Real-time Stream</p>
+                            <div className="text-left">
+                                <h2 className="font-bold text-gray-900 text-sm">
+                                    {activeTab === 'transcript' ? 'Meeting Transcript' : activeTab === 'requirements' ? 'Requirements' : 'Conflicts'}
+                                </h2>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Live Sync</span>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-center">
+                        
+                        <div className="flex items-center gap-1">
                             <button
                                 onClick={clearTranscript}
-                                className="p-2 text-gray-300 hover:text-gray-500"
+                                title="Clear Stream"
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-50 rounded-lg transition-colors"
                             >
-                                <MoreVertical size={20} />
+                                <Trash2 size={15} />
                             </button>
                             {onClose && (
                               <button 
                                 onClick={onClose}
-                                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors ml-1"
+                                className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
                               >
-                                <ChevronRight size={20} />
+                                <ChevronRight size={18} />
                               </button>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
+                    {/* Enterprise Tabs (MS Teams Style) */}
+                    <div className="flex bg-gray-100/80 p-1 rounded-xl gap-1 border border-gray-200/60">
                         <button
                             onClick={() => setActiveTab('transcript')}
-                            className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg transition-all ${
+                            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                                 activeTab === 'transcript'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white text-blue-600 shadow-xs border border-gray-200/60'
+                                    : 'text-gray-600 hover:text-gray-900'
                             }`}
                         >
                             Transcript
                         </button>
                         <button
                             onClick={() => setActiveTab('requirements')}
-                            className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1 ${
+                            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
                                 activeTab === 'requirements'
-                                    ? 'bg-white text-purple-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white text-blue-600 shadow-xs border border-gray-200/60'
+                                    : 'text-gray-600 hover:text-gray-900'
                             }`}
                         >
                             Req's
                             {threads.length > 0 && (
-                                <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full text-[9px]">
+                                <span className="bg-blue-50 text-blue-600 px-1.5 py-0.2 rounded-full text-[10px] font-bold border border-blue-100">
                                     {threads.length}
                                 </span>
                             )}
                         </button>
                         <button
                             onClick={() => setActiveTab('conflicts')}
-                            className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1 ${
+                            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
                                 activeTab === 'conflicts'
-                                    ? 'bg-white text-red-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white text-red-600 shadow-xs border border-gray-200/60'
+                                    : 'text-gray-600 hover:text-gray-900'
                             }`}
                         >
                             Conflicts
                             {conflicts.length > 0 && (
-                                <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full text-[9px] animate-pulse">
+                                <span className="bg-red-50 text-red-600 px-1.5 py-0.2 rounded-full text-[10px] font-bold border border-red-100">
                                     {conflicts.length}
                                 </span>
                             )}
@@ -175,42 +159,8 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                     </div>
                 </div>
 
-                {acousticFeatures && (
-                    <div className="mx-5 mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-100 space-y-3">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Activity size={14} className="text-blue-500" />
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Acoustics Live</span>
-                        </div>
-                        <div className="space-y-3">
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase">Pitch</span>
-                                    <span className="text-[10px] font-bold text-blue-600">{Math.round(acousticFeatures.pitch)}Hz</span>
-                                </div>
-                                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full bg-blue-500 transition-all duration-300" 
-                                        style={{ width: `${Math.min(100, (acousticFeatures.pitch / 150) * 100)}%` }} 
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase">Energy</span>
-                                    <span className="text-[10px] font-bold text-purple-600">{Math.round(acousticFeatures.energy)}dB</span>
-                                </div>
-                                <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full bg-purple-500 transition-all duration-300" 
-                                        style={{ width: `${Math.min(100, acousticFeatures.energy * 2)}%` }} 
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex-grow overflow-y-auto p-5 space-y-6 custom-scrollbar bg-white/50">
+                {/* Content Stream Area */}
+                <div className="flex-grow overflow-y-auto p-4 space-y-3 custom-scrollbar bg-gray-50/50">
                     <AnimatePresence mode="wait">
                         {activeTab === 'transcript' ? (
                             <motion.div 
@@ -218,29 +168,40 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="space-y-6"
+                                className="space-y-3"
                             >
                                 {transcript.length === 0 ? (
-                                    <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
-                                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><Mic size={32} className="text-gray-400" /></div>
-                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Listening for audio...</p>
+                                    <div className="h-full flex flex-col items-center justify-center text-center py-20 px-4">
+                                        <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3 border border-blue-100">
+                                            <Mic size={22} />
+                                        </div>
+                                        <h3 className="text-xs font-bold text-gray-800 mb-1">Listening for Audio</h3>
+                                        <p className="text-xs font-normal text-gray-500 max-w-[200px] leading-relaxed">
+                                            Transcripts will appear here automatically when speech is detected.
+                                        </p>
                                     </div>
                                 ) : (
                                     transcript.map((entry) => (
                                         <motion.div
                                             key={entry.id}
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            className="space-y-2 group text-left"
+                                            initial={{ opacity: 0, y: 4 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="text-left p-3.5 rounded-xl bg-white border border-gray-200/70 shadow-xs space-y-1.5"
                                         >
-                                            <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-900">{entry.speakerName}</span>
+                                                    <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
+                                                        {(entry.speakerName || 'S').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-xs font-bold text-gray-900">{entry.speakerName}</span>
                                                 </div>
-                                                <span className="text-[9px] text-gray-400 font-bold tabular-nums">{entry.timestamp}</span>
+                                                <span className="text-[10px] font-medium text-gray-400 tabular-nums">
+                                                    {entry.timestamp}
+                                                </span>
                                             </div>
-                                            <p className="text-sm text-gray-800 leading-relaxed font-medium bg-gray-50 p-4 rounded-2xl border border-gray-100 shadow-sm group-hover:bg-white transition-colors">{entry.text}</p>
+                                            <p className="text-xs text-gray-700 leading-relaxed font-normal">
+                                                {entry.text}
+                                            </p>
                                         </motion.div>
                                     ))
                                 )}
@@ -252,12 +213,17 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="space-y-4"
+                                className="space-y-3"
                             >
                                 {threads.length === 0 ? (
-                                    <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
-                                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><ListChecks size={32} className="text-gray-400" /></div>
-                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Awaiting Requirements...</p>
+                                    <div className="h-full flex flex-col items-center justify-center text-center py-20 px-4">
+                                        <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center mb-3">
+                                            <ListChecks size={22} />
+                                        </div>
+                                        <h3 className="text-xs font-bold text-gray-800 mb-1">No Requirements Yet</h3>
+                                        <p className="text-xs font-normal text-gray-500 max-w-[200px] leading-relaxed">
+                                            Requirements gathered from the meeting will be displayed here.
+                                        </p>
                                     </div>
                                 ) : (
                                     threads.map((thread) => {
@@ -268,17 +234,17 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                         return (
                                             <motion.div
                                                 key={tid}
-                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-4 group hover:border-purple-300 transition-colors text-left"
+                                                initial={{ opacity: 0, y: 4 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="bg-white p-4 rounded-xl border border-gray-200/70 shadow-xs space-y-3 text-left"
                                             >
                                                 {/* Header info */}
                                                 <div className="flex items-start justify-between gap-2">
-                                                    <div className="space-y-1">
-                                                        <h4 className="text-sm font-bold text-gray-900 leading-tight">
+                                                    <div className="space-y-0.5">
+                                                        <h4 className="text-xs font-bold text-gray-900 leading-snug">
                                                             {thread.requirement_title || thread.topic_label || thread.thread_label || 'Requirement Thread'}
                                                         </h4>
-                                                        <div className="flex items-center gap-2 text-[10px] text-gray-400 font-semibold">
+                                                        <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
                                                             <span className="flex items-center gap-1">
                                                                 <User size={10} /> {thread.created_by || 'Meeting Host'}
                                                             </span>
@@ -290,60 +256,56 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                                     </div>
                                                     
                                                     {/* State Badge */}
-                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                                                    <span className={`text-[9px] font-semibold uppercase px-2 py-0.5 rounded-md shrink-0 border ${
                                                         stateName === 'VALIDATED' || stateName === 'APPROVED'
-                                                            ? 'bg-green-50 text-green-600 border border-green-100'
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                             : stateName === 'REFINED'
-                                                                ? 'bg-purple-50 text-purple-600 border border-purple-100'
+                                                                ? 'bg-blue-50 text-blue-700 border-blue-200'
                                                                 : stateName === 'DISCUSSION'
-                                                                    ? 'bg-orange-50 text-orange-600 border border-orange-100'
-                                                                    : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                    : 'bg-gray-100 text-gray-700 border-gray-200'
                                                     }`}>
                                                         {stateName.replace('_', ' ')}
                                                     </span>
                                                 </div>
 
                                                 {/* Description */}
-                                                <p className="text-xs text-gray-600 leading-relaxed font-medium bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                                                <p className="text-xs text-gray-600 leading-relaxed font-normal bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                                                     {thread.summary || thread.summary_text || 'No detailed summary recorded.'}
                                                 </p>
 
                                                 {/* Stepper Visualization */}
                                                 <div className="pt-2 border-t border-gray-100">
-                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">State Lifecycle</p>
-                                                    <div className="flex items-center justify-between relative px-2">
-                                                        {/* Connector line behind steps */}
-                                                        <div className="absolute left-6 right-6 top-2 h-0.5 bg-gray-100 -z-10" />
+                                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">Lifecycle Progress</p>
+                                                    <div className="flex items-center justify-between relative px-1">
+                                                        <div className="absolute left-4 right-4 top-2 h-0.5 bg-gray-200 -z-10" />
                                                         
                                                         {STATES.map((s, idx) => {
                                                             const isCompleted = idx < stateIndex;
                                                             const isActive = idx === stateIndex;
                                                             
                                                             return (
-                                                                <div key={s.value} className="flex flex-col items-center gap-1.5 flex-1 relative">
-                                                                    {/* Connecting line progress overlay */}
+                                                                <div key={s.value} className="flex flex-col items-center gap-1 flex-1 relative">
                                                                     {idx < stateIndex && idx < STATES.length - 1 && (
-                                                                        <div className="absolute left-[50%] right-[-50%] top-2 h-0.5 bg-purple-500 -z-10" />
+                                                                        <div className="absolute left-[50%] right-[-50%] top-2 h-0.5 bg-blue-600 -z-10" />
                                                                     )}
                                                                     
-                                                                    {/* Dot */}
-                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
+                                                                    <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold transition-all ${
                                                                         isCompleted 
-                                                                            ? 'bg-purple-600 text-white shadow-sm shadow-purple-200' 
+                                                                            ? 'bg-blue-600 text-white' 
                                                                             : isActive
-                                                                                ? 'bg-purple-600 text-white ring-4 ring-purple-100'
-                                                                                : 'bg-white border-2 border-gray-200 text-gray-400'
+                                                                                ? 'bg-blue-600 text-white ring-2 ring-blue-100'
+                                                                                : 'bg-white border border-gray-300 text-gray-400'
                                                                     }`}>
                                                                         {isCompleted ? <Check size={8} className="stroke-[3]" /> : idx + 1}
                                                                     </div>
                                                                     
-                                                                    {/* Step Label */}
-                                                                    <span className={`text-[8px] font-bold uppercase tracking-wider text-center select-none ${
+                                                                    <span className={`text-[8px] font-medium uppercase tracking-wider text-center select-none ${
                                                                         isActive 
-                                                                            ? 'text-purple-600 font-extrabold' 
+                                                                            ? 'text-blue-600 font-bold' 
                                                                             : isCompleted
                                                                                 ? 'text-gray-700 font-semibold'
-                                                                                : 'text-gray-400 font-medium'
+                                                                                : 'text-gray-400'
                                                                     }`}>
                                                                         {s.shortLabel}
                                                                     </span>
@@ -352,16 +314,6 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                                         })}
                                                     </div>
                                                 </div>
-
-                                                {/* Bottom info */}
-                                                {thread.utterance_text && (
-                                                    <div className="pt-2 border-t border-gray-100 text-[10px]">
-                                                        <div className="p-2 bg-purple-50/50 rounded-lg border border-purple-100 text-[9px] text-gray-500">
-                                                            <span className="font-bold text-purple-700">Source Evidence: </span>
-                                                            "{thread.utterance_text.length > 70 ? thread.utterance_text.slice(0, 70) + '...' : thread.utterance_text}"
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </motion.div>
                                         );
                                     })
@@ -374,14 +326,17 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="space-y-4"
+                                className="space-y-3"
                             >
                                 {conflicts.length === 0 ? (
-                                    <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20 px-6">
-                                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                                            <AlertTriangle size={32} className="text-gray-400" />
+                                    <div className="h-full flex flex-col items-center justify-center text-center py-20 px-4">
+                                        <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-3 border border-red-100">
+                                            <AlertTriangle size={22} />
                                         </div>
-                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">No Conflict Detected Yet</p>
+                                        <h3 className="text-xs font-bold text-gray-800 mb-1">No Conflicts Detected</h3>
+                                        <p className="text-xs font-normal text-gray-500 max-w-[200px] leading-relaxed">
+                                            Contradictory requirements will be flagged here in real-time.
+                                        </p>
                                     </div>
                                 ) : (
                                     conflicts.map((conflict, idx) => {
@@ -389,39 +344,68 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                                         const reqA = requirements.find(r => r.requirement_id === conflict.requirement_a_id || r.id === conflict.requirement_a_id);
                                         const reqB = requirements.find(r => r.requirement_id === conflict.requirement_b_id || r.id === conflict.requirement_b_id);
 
+                                        const textA = reqA?.requirement_text || conflict.requirement_a_text || `ID: ${conflict.requirement_a_id?.slice(0, 8)}...`;
+                                        const textB = reqB?.requirement_text || conflict.requirement_b_text || `ID: ${conflict.requirement_b_id?.slice(0, 8)}...`;
+                                        const isCrossMeeting = !!conflict.source_meeting_title;
+                                        const isDuplicate = conflict.conflict_type === 'duplicate';
+
                                         return (
                                             <motion.div
                                                 key={conflict.conflict_id || conflict.id || idx}
-                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                initial={{ opacity: 0, y: 4 }}
+                                                animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: idx * 0.05 }}
-                                                className={`p-4 rounded-2xl border shadow-sm space-y-3 text-left ${s.card}`}
+                                                className={`p-4 rounded-xl border shadow-xs space-y-2.5 text-left ${
+                                                    isDuplicate ? 'border-purple-200 bg-purple-50/30' : s.card
+                                                }`}
                                             >
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">
-                                                            {conflict.conflict_type?.replace(/_/g, ' ')} Conflict
+                                                {/* Header Category Badges */}
+                                                <div className="flex items-center justify-between gap-1 flex-wrap">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        {isDuplicate ? (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-100 text-purple-700 border border-purple-200">
+                                                                🔄 Duplicate Feature
+                                                            </span>
+                                                        ) : isCrossMeeting ? (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
+                                                                🌐 Cross-Meeting ({conflict.source_meeting_title})
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-100 text-red-700 border border-red-200">
+                                                                ⚡ In-Meeting Conflict
+                                                            </span>
+                                                        )}
+
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                                                            {conflict.conflict_type?.replace(/_/g, ' ')}
                                                         </span>
                                                     </div>
-                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${s.badge}`}>
-                                                        {conflict.severity} severity
+
+                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-md ${s.badge}`}>
+                                                        {conflict.severity}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs text-gray-800 font-medium leading-relaxed bg-white/80 p-3 rounded-xl border border-white">
-                                                    <span className="font-bold text-red-600 block mb-1">Conflict Analysis:</span>
+
+                                                <p className="text-xs text-gray-800 font-normal leading-relaxed bg-white p-2.5 rounded-lg border border-gray-100">
+                                                    <span className="font-bold text-red-600 block mb-0.5">Analysis:</span>
                                                     {conflict.explanation}
                                                 </p>
                                                 
-                                                {/* Requirement A vs B comparison */}
-                                                <div className="space-y-2 pt-1 border-t border-gray-200/50 text-[10px]">
-                                                    <div className="p-2 rounded-lg bg-red-100/40 border border-red-200/50">
-                                                        <span className="font-bold text-red-700 block text-[9px] uppercase tracking-wider mb-0.5">Requirement A</span>
-                                                        <p className="text-gray-800 font-medium">{reqA ? reqA.requirement_text : `ID: ${conflict.requirement_a_id.slice(0, 8)}...`}</p>
+                                                <div className="space-y-1.5 pt-1 border-t border-gray-200/50 text-[10px]">
+                                                    <div className="p-2 rounded-lg bg-gray-50 border border-gray-200">
+                                                        <span className="font-bold text-gray-600 block text-[9px] uppercase tracking-wider mb-0.5">Requirement A (Current Session)</span>
+                                                        <p className="text-gray-800 font-medium">{textA}</p>
                                                     </div>
-                                                    <div className="p-2 rounded-lg bg-red-100/40 border border-red-200/50">
-                                                        <span className="font-bold text-red-700 block text-[9px] uppercase tracking-wider mb-0.5">Requirement B</span>
-                                                        <p className="text-gray-800 font-medium">{reqB ? reqB.requirement_text : `ID: ${conflict.requirement_b_id.slice(0, 8)}...`}</p>
+                                                    <div className="p-2 rounded-lg bg-gray-50 border border-gray-200">
+                                                        <div className="flex items-center justify-between mb-0.5">
+                                                            <span className="font-bold text-gray-600 text-[9px] uppercase tracking-wider">Requirement B</span>
+                                                            {conflict.source_meeting_title && (
+                                                                <span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                                                                    Meeting: {conflict.source_meeting_title}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-gray-800 font-medium">{textB}</p>
                                                     </div>
                                                 </div>
                                             </motion.div>
@@ -432,19 +416,6 @@ export const TranscriptSidebar: React.FC<TranscriptSidebarProps> = ({ transcript
                             </motion.div>
                         )}
                     </AnimatePresence>
-                </div>
-
-                <div className="p-4 border-t border-gray-100 bg-gray-50">
-                    <div className="relative group">
-                        <input
-                            type="text"
-                            placeholder="Add tag or quick note..."
-                            className="w-full bg-white border border-gray-200 rounded-xl py-2.5 pl-4 pr-10 outline-none focus:border-blue-400 transition-all text-xs"
-                        />
-                        <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500">
-                            <Send size={14} />
-                        </button>
-                    </div>
                 </div>
             </div>
         </aside>

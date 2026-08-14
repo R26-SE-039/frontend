@@ -31,7 +31,7 @@ export const DashboardPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreated, setIsCreated] = useState(false);
-  const [inviteDetails, setInviteDetails] = useState<{ id: string; passcode: string; link: string } | null>(null);
+  const [inviteDetails, setInviteDetails] = useState<{ id: string, passcode: string, link: string, title?: string } | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   const activeModule = dashboardNavItems.find((item) => item.id === currentView);
@@ -50,7 +50,7 @@ export const DashboardPage: React.FC = () => {
     setError(null);
     try {
       const data = await meetingApi.joinMeeting(meetingId, passcode);
-      setUser({ ...user, meetingId: data.meeting_id });
+      setUser({ ...user, meetingId: data.meeting_id, meetingTitle: data.title || `${user.name}'s Meeting` });
       navigate(`/meeting/${data.meeting_id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to join meeting');
@@ -64,8 +64,9 @@ export const DashboardPage: React.FC = () => {
     setError(null);
     try {
       const scheduledAt = mode === 'scheduled' ? `${date}T${time}` : undefined;
-      const data = await meetingApi.createMeeting(title || `${user.name}'s Meeting`, mode, scheduledAt);
-      setInviteDetails({ id: data.meeting_id, passcode: data.passcode, link: data.invite_link });
+      const meetingTitle = title.trim() || `${user.name}'s Meeting`;
+      const data = await meetingApi.createMeeting(meetingTitle, mode, scheduledAt);
+      setInviteDetails({ id: data.meeting_id, passcode: data.passcode, link: data.invite_link, title: meetingTitle });
       setIsCreated(true);
     } catch (err: any) {
       setError(err.message || 'Failed to create meeting');
@@ -201,6 +202,41 @@ export const DashboardPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
+                <ProfileForm />
+              </motion.div>
+            ) : currentView === 'menu' ? (
+              <OverviewView 
+                userName={user.name}
+                projectName={currentProject.name}
+                agileRole={user.agileRole}
+                navItems={navItems}
+                onModuleSelect={setCurrentView}
+              />
+            ) : (
+              <motion.div
+                key="view"
+                initial={{ opacity: 0, scale: 0.99 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.99 }}
+                className="h-full"
+              >
+                {currentView === 'meeting' && (
+                  <MeetingHubView 
+                    onJoin={handleJoin}
+                    onCreate={handleCreate}
+                    isLoading={isLoading}
+                    error={error}
+                    isCreated={isCreated}
+                    inviteDetails={inviteDetails}
+                    onLaunch={() => { 
+                      if (inviteDetails) {
+                        setUser({ ...user, meetingId: inviteDetails.id, meetingTitle: inviteDetails.title || `${user.name}'s Meeting` }); 
+                        navigate(`/meeting/${inviteDetails.id}`); 
+                      }
+                    }}
+                    onCopy={copyToClipboard}
+                  />
+                )}
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {testScriptLinks.map((item) => (

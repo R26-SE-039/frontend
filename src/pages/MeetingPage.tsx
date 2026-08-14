@@ -14,7 +14,8 @@ import { ParticipantGrid } from '../components/meeting/ParticipantGrid';
 import { TranscriptSidebar } from '../components/meeting/TranscriptSidebar';
 import { ControlBar } from '../components/meeting/ControlBar';
 import { ChatPanel } from '../components/meeting/ChatPanel';
-import { IntelligencePanel } from '../components/meeting/IntelligencePanel';
+import { ParticipantsPanel } from '../components/meeting/ParticipantsPanel';
+import { SecurityPanel } from '../components/meeting/SecurityPanel';
 import { ProfileForm } from '../components/auth/ProfileForm';
 import { EndOfMeetingSummary } from '../components/meeting/EndOfMeetingSummary';
 
@@ -113,12 +114,6 @@ export const MeetingPage: React.FC = () => {
             <MessageSquare size={22} />
           </button>
           <button 
-            onClick={() => setActivePanel(activePanel === 'intelligence' ? null : 'intelligence')}
-            className={`p-3 rounded-xl transition-all ${activePanel === 'intelligence' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
-          >
-            <Sparkles size={22} />
-          </button>
-          <button 
             onClick={() => setActivePanel(activePanel === 'security' ? null : 'security')}
             className={`p-3 rounded-xl transition-all ${activePanel === 'security' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}
           >
@@ -137,10 +132,12 @@ export const MeetingPage: React.FC = () => {
       {/* ─── Main Content ─── */}
       <div className="flex-grow flex flex-col min-w-0 relative h-full">
         <MeetingHeader 
+            meetingTitle={user?.meetingTitle || (user?.name ? `${user.name}'s Elicitation Meeting` : 'Requirements Elicitation Meeting')}
             userName={user?.name}
             meetingId={user?.meetingId}
             isConnected={isConnected}
             duration={formatTime(sessionTime)}
+            participants={participants}
         />
 
         <main className="flex-grow flex flex-col lg:flex-row p-4 sm:p-6 gap-6 overflow-hidden relative">
@@ -155,27 +152,23 @@ export const MeetingPage: React.FC = () => {
             />
             
             {/* Conflict Detection (Context Bar) */}
-            <div className="h-14 sm:h-16 bg-white border border-gray-100 rounded-2xl px-4 flex items-center justify-between shadow-sm flex-shrink-0 overflow-x-auto no-scrollbar">
-                <div className="flex items-center gap-3">
-                    {conflicts.length === 0 ? (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] sm:text-xs font-bold whitespace-nowrap">
-                            <Shield size={14} /> Conflict Detection: <span className="text-gray-900 ml-1 italic font-medium">No conflict detected yet</span>
-                        </div>
-                    ) : (
+            {conflicts.length > 0 && (
+                <div className="h-14 sm:h-16 bg-white border border-gray-100 rounded-2xl px-4 flex items-center justify-between shadow-sm flex-shrink-0 overflow-x-auto no-scrollbar">
+                    <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200 text-[10px] sm:text-xs font-bold whitespace-nowrap animate-pulse">
                             <Shield size={14} /> {conflicts.length} Conflict{conflicts.length > 1 ? 's' : ''} Detected
                             <span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[9px]">
                                 {conflicts.filter(c => c.severity === 'high').length} HIGH
                             </span>
                         </div>
-                    )}
+                    </div>
+                    <div className="hidden xs:flex items-center gap-4 text-gray-400">
+                        <button className="flex items-center gap-2 text-xs font-semibold hover:text-blue-600 transition-colors whitespace-nowrap"><Download size={16} /> Save Brief</button>
+                        <div className="w-px h-6 bg-gray-100" />
+                        <button className="flex items-center gap-2 text-xs font-semibold hover:text-blue-600 transition-colors whitespace-nowrap"><Download size={16} /> Export Logs</button>
+                    </div>
                 </div>
-                <div className="hidden xs:flex items-center gap-4 text-gray-400">
-                    <button className="flex items-center gap-2 text-xs font-semibold hover:text-blue-600 transition-colors whitespace-nowrap"><Download size={16} /> Save Brief</button>
-                    <div className="w-px h-6 bg-gray-100" />
-                    <button className="flex items-center gap-2 text-xs font-semibold hover:text-blue-600 transition-colors whitespace-nowrap"><Download size={16} /> Export Logs</button>
-                </div>
-            </div>
+            )}
           </div>
 
           {/* Right Panel: Conditional Rendering */}
@@ -194,31 +187,13 @@ export const MeetingPage: React.FC = () => {
              </div>
           </div>
 
-          {/* New Interactive Panels (Dummy Implementations) */}
+          {/* Interactive Participants Panel */}
           {activePanel === 'participants' && (
-            <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 p-4 sm:p-6 flex flex-col border-l border-gray-100 animate-in slide-in-from-right duration-300">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-lg font-bold text-gray-900">Participants <span className="ml-2 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-xs">{participants.length}</span></h2>
-                <button onClick={() => setActivePanel('transcript')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"><LayoutGrid size={20} /></button>
-              </div>
-              <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar">
-                {participants.map(p => (
-                  <div key={p.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-all group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 overflow-hidden border-2 border-white">
-                        <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-900">{p.name}{p.id === 'me' && ' (You)'}</p>
-                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">{p.id === '1' ? 'AI Coordinator' : 'Member'}</p>
-                      </div>
-                    </div>
-                    <button className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 transition-all"><Settings size={16} /></button>
-                  </div>
-                ))}
-              </div>
-              <button className="mt-auto w-full py-4 bg-gray-50 text-gray-600 text-xs font-bold rounded-2xl hover:bg-gray-100 transition-all uppercase tracking-widest">+ Invite People</button>
-            </div>
+            <ParticipantsPanel
+              participants={participants}
+              onClose={() => setActivePanel('transcript')}
+              meetingId={user?.meetingId}
+            />
           )}
 
           {activePanel === 'chat' && (
@@ -230,40 +205,9 @@ export const MeetingPage: React.FC = () => {
               participantCount={participants.length}
             />
           )}
-          
-          {activePanel === 'intelligence' && (
-            <IntelligencePanel
-              meetingId={user?.meetingId || ''}
-              onClose={() => setActivePanel('transcript')}
-            />
-          )}
 
           {activePanel === 'security' && (
-             <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 p-6 flex flex-col border-l border-gray-100">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-lg font-bold text-gray-900">Security</h2>
-                  <button onClick={() => setActivePanel('transcript')} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"><LayoutGrid size={20} /></button>
-                </div>
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Shield size={18} className="text-emerald-500" />
-                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest">End-to-End Encrypted</span>
-                    </div>
-                    <p className="text-xs text-emerald-600">This session is secured with advanced AES-256 encryption.</p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    <button className="flex items-center justify-between p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-red-50 hover:border-red-100 group transition-all">
-                      <span className="text-sm font-bold text-gray-700 group-hover:text-red-600">Lock Meeting</span>
-                      <Shield size={16} className="text-gray-400 group-hover:text-red-500" />
-                    </button>
-                    <button className="flex items-center justify-between p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-100 group transition-all">
-                        <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600">Waiting Room</span>
-                        <div className="w-10 h-5 bg-blue-600 rounded-full relative"><div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" /></div>
-                    </button>
-                  </div>
-                </div>
-             </div>
+            <SecurityPanel onClose={() => setActivePanel('transcript')} />
           )}
 
           {activePanel === 'settings' && (
@@ -384,7 +328,6 @@ export const MeetingPage: React.FC = () => {
             <button onClick={() => setActivePanel(activePanel === 'transcript' ? null : 'transcript')} className={`p-4 rounded-xl ${activePanel === 'transcript' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><LayoutGrid size={20} /></button>
             <button onClick={() => setActivePanel(activePanel === 'participants' ? null : 'participants')} className={`p-4 rounded-xl ${activePanel === 'participants' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Users size={20} /></button>
             <button onClick={() => setActivePanel(activePanel === 'chat' ? null : 'chat')} className={`p-4 rounded-xl ${activePanel === 'chat' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><MessageSquare size={20} /></button>
-            <button onClick={() => setActivePanel(activePanel === 'intelligence' ? null : 'intelligence')} className={`p-4 rounded-xl ${activePanel === 'intelligence' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400'}`}><Sparkles size={20} /></button>
             <button onClick={() => setActivePanel(activePanel === 'security' ? null : 'security')} className={`p-4 rounded-xl ${activePanel === 'security' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Shield size={20} /></button>
             <button onClick={() => setActivePanel(activePanel === 'settings' ? null : 'settings')} className={`p-4 rounded-xl ${activePanel === 'settings' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}><Settings size={20} /></button>
         </div>
