@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Settings, Users, Folder, Trash2, Plus, X, ListTodo, Calendar, AlertCircle
+  ArrowLeft, Settings, Users, Folder, Trash2, Plus, X, ListTodo, Calendar, AlertCircle, GitBranch
 } from 'lucide-react';
+import { projectConfigApi } from '../api/projectConfigApi';
 import { projectApi } from '../api/projectApi';
 import { projectMemberApi } from '../api/projectMemberApi';
 import { iterationApi } from '../api/iterationApi';
@@ -32,6 +33,12 @@ export const ProjectDetailPage: React.FC = () => {
   const [isAddingIteration, setIsAddingIteration] = useState(false);
   const [newIteration, setNewIteration] = useState({ name: '', goal: '', start_date: '', end_date: '' });
 
+  // Project Config state
+  const [repoUrl, setRepoUrl] = useState('');
+  const [pat, setPat] = useState('');
+  const [isEditingConfig, setIsEditingConfig] = useState(false);
+  const [hasConfig, setHasConfig] = useState(false);
+
   const isAdminOrOwner = user?.role === 'ORGANIZATION_OWNER' || user?.role === 'ORGANIZATION_ADMIN';
   const canEdit = isAdminOrOwner || members.find(m => m.userId === user?.id)?.role === 'PROJECT_OWNER';
 
@@ -54,6 +61,21 @@ export const ProjectDetailPage: React.FC = () => {
 
       const iters = await iterationApi.listIterations(projectId);
       setIterations(iters);
+
+      try {
+        const config = await projectConfigApi.getConfiguration(projectId);
+        if (config) {
+          setRepoUrl(config.repo_url);
+          setPat(config.personal_access_token);
+          setHasConfig(true);
+        } else {
+          setRepoUrl('');
+          setPat('');
+          setHasConfig(false);
+        }
+      } catch (err) {
+        console.error('Failed to load project config', err);
+      }
     } catch (error) {
       console.error(error);
       alert('Failed to load project');
@@ -135,6 +157,24 @@ export const ProjectDetailPage: React.FC = () => {
       setIterations(iters);
     } catch (error: any) {
       alert(error.message || 'Failed to update sprint status');
+    }
+  };
+
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !canEdit) return;
+    try {
+      const updated = await projectConfigApi.saveConfiguration(id, {
+        repoUrl,
+        personalAccessToken: pat
+      });
+      setRepoUrl(updated.repo_url);
+      setPat(updated.personal_access_token);
+      setHasConfig(true);
+      setIsEditingConfig(false);
+      alert('Project configuration saved successfully');
+    } catch (error: any) {
+      alert(error.message || 'Failed to save project configuration');
     }
   };
 
@@ -228,6 +268,74 @@ export const ProjectDetailPage: React.FC = () => {
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Created</span>
                     <p className="text-slate-600 mt-1">{new Date(project?.createdAt).toLocaleDateString()}</p>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Git Configuration Panel */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <GitBranch className="text-slate-400" size={20} />
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Git Configuration</h2>
+                    <p className="text-xs text-slate-400 font-medium">Connect your repository to map test cases and trigger automated validations.</p>
+                  </div>
+                </div>
+                {canEdit && !isEditingConfig && (
+                  <button onClick={() => setIsEditingConfig(true)} className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-lg shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-2">
+                    <Settings size={16} /> Edit
+                  </button>
+                )}
+              </div>
+
+              {isEditingConfig ? (
+                <form onSubmit={handleSaveConfig} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Repository URL</label>
+                    <input 
+                      type="text" required value={repoUrl} onChange={e => setRepoUrl(e.target.value)} 
+                      placeholder="e.g. https://github.com/username/project.git" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-medium" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Personal Access Token</label>
+                    <input 
+                      type="password" required value={pat} onChange={e => setPat(e.target.value)} 
+                      placeholder="Enter GitHub/GitLab Personal Access Token" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-medium" 
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => setIsEditingConfig(false)} className="px-4 py-2 text-slate-600 font-bold text-sm hover:bg-slate-50 rounded-lg">Cancel</button>
+                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm shadow-md hover:bg-blue-700">Save Configuration</button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  {hasConfig ? (
+                    <>
+                      <div>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Repository URL</span>
+                        <p className="text-slate-900 font-medium mt-1">{repoUrl}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Personal Access Token</span>
+                        <p className="text-slate-600 mt-1 font-mono text-sm">••••••••••••••••••••••••••••••••</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-4 text-center">
+                      <AlertCircle className="mx-auto text-slate-300 mb-3" size={32} />
+                      <p className="text-slate-500 font-medium">No Git repository connected yet.</p>
+                      {canEdit && (
+                        <button onClick={() => setIsEditingConfig(true)} className="mt-3 px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:border-blue-600 hover:text-blue-600 transition-colors">
+                          Configure Now
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
