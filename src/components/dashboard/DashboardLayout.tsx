@@ -170,6 +170,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     return '';
   }, [location.pathname]);
 
+  const openSelfHealingLanding = () => {
+    navigate('/dashboard', { state: { view: 'self-healing' } });
+  };
+
   const activeTestCasePath = useMemo(() => {
     const exact = testCaseLinks.find((item) => item.path === location.pathname);
     return exact ? exact.path : '';
@@ -193,7 +197,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
 
     if (view === 'self-healing') {
-      navigate('/self-healing');
+      openSelfHealingLanding();
       return;
     }
 
@@ -382,9 +386,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <Home size={14} /> Main Dashboard
                     </button>
                     <span>/</span>
-                    <button type="button" onClick={() => navigate('/self-healing')} className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-rose-600">
-                      Self Healing Dashboard
+                    <button type="button" onClick={openSelfHealingLanding} className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-rose-600">
+                      Self Healing
                     </button>
+                    <span>/</span>
+                    <span className="rounded-lg px-2 py-1 text-slate-900">
+                      {currentTitle}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {selfHealingLinks.map((item) => (
