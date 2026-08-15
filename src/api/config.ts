@@ -5,8 +5,8 @@ export const GATEWAY_WS_URL = 'ws://localhost:8080';
 
 // ── Microservices URLs (via API Gateway) ────────────────────────────────
 export const AUTH_API_URL = `${GATEWAY_BASE_URL}/api/auth-service`;
-export const RAG_API_URL = `${GATEWAY_BASE_URL}/api/rag`;
-export const WS_BASE_URL = `${GATEWAY_WS_URL}/api/rag`;
+export const RAG_API_URL = `${GATEWAY_BASE_URL}/api/story`;
+export const WS_BASE_URL = `${GATEWAY_WS_URL}/api/story`;
 export const FAILURE_ANALYSIS_API_URL = `${GATEWAY_BASE_URL}/api/failure`;
 
 export const REPAIR_AGENT_API_URL = `${GATEWAY_BASE_URL}/api/repair-agent`;
