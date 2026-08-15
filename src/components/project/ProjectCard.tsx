@@ -1,18 +1,28 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Folder, Clock, UserPlus, Lock, Globe, ChevronRight, MoreVertical 
+  Folder, Clock, Lock, Globe, ChevronRight, MoreVertical, Settings, Target 
 } from 'lucide-react';
-import { Project } from '../../store/useMeetingStore';
+import { useNavigate } from 'react-router-dom';
+import { Project, Iteration } from '../../store/useMeetingStore';
+import { iterationApi } from '../../api/iterationApi';
 
 interface ProjectCardProps {
   project: Project;
   idx: number;
   onSelect: (project: Project) => void;
-  onInvite: (project: Project) => void;
+  onInvite?: (project: Project) => void;
 }
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, idx, onSelect, onInvite }) => {
+  const navigate = useNavigate();
+  const [activeSprint, setActiveSprint] = useState<Iteration | null>(null);
+
+  useEffect(() => {
+    iterationApi.getActiveIteration(project.id)
+      .then(iter => setActiveSprint(iter))
+      .catch(() => {});
+  }, [project.id]);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -46,38 +56,37 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, idx, onSelect
           <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{project.name}</h3>
           {project.isPrivate ? <Lock size={12} className="text-slate-300" /> : <Globe size={12} className="text-slate-300" />}
         </div>
-        <p className="text-xs text-slate-500 font-medium leading-relaxed line-clamp-2">
+        <p className="text-xs text-slate-500 font-medium leading-relaxed line-clamp-2 mb-3">
           {project.description}
         </p>
+
+        {activeSprint ? (
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold tracking-wider uppercase border border-emerald-100">
+            <Target size={12} />
+            {activeSprint.name}
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-50 text-slate-500 rounded text-[10px] font-bold tracking-wider uppercase border border-slate-200">
+            <Target size={12} />
+            No Active Sprint
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
-        <div className="flex items-center gap-3">
-          <div className="flex -space-x-1.5">
-            {[...Array(Math.min(3, project.memberCount || 0))].map((_, i) => (
-              <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400 uppercase">
-                {String.fromCharCode(65 + i)}
-              </div>
-            ))}
-            {(project.memberCount || 0) > 3 && (
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-slate-50 flex items-center justify-center text-[7px] font-bold text-slate-400">
-                +{(project.memberCount || 0) - 3}
-              </div>
-            )}
-          </div>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onInvite(project); }}
-            className="p-1 hover:bg-blue-50 rounded text-blue-400 transition-colors"
-            title="Invite Members"
-          >
-            <UserPlus size={14} />
-          </button>
-        </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); navigate(`/projects/${project.id}`); }}
+          className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
+          title="Project Settings (Members & Sprints)"
+        >
+          <Settings size={16} />
+        </button>
+
         <button 
           onClick={() => onSelect(project)}
           className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:gap-2 transition-all"
         >
-          Open <ChevronRight size={14} />
+          Open Dashboard <ChevronRight size={14} />
         </button>
       </div>
     </motion.div>

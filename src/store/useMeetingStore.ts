@@ -120,6 +120,26 @@ export interface Project {
   isPrivate: boolean;
 }
 
+export enum IterationStatus {
+  PLANNING = 'PLANNING',
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export interface Iteration {
+  id: string;
+  project_id: string;
+  name: string;
+  goal: string | null;
+  start_date: string;
+  end_date: string;
+  status: IterationStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatMessage {
   id: string;
   sender: string;

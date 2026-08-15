@@ -9,7 +9,6 @@ import { ProjectDashboard } from './pages/ProjectDashboard';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { OrganizationSettingsPage } from './pages/OrganizationSettingsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
-import { BacklogPage } from './pages/BacklogPage';
 import SelfHealingDashboardPage from './pages/SelfHealingDashboardPage';
 import FailureAnalysisSubmitPage from './pages/FailureAnalysisSubmitPage';
 import FailureRecordsPage from './pages/FailureRecordsPage';
@@ -82,14 +81,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProjectDetailPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/projects/:id/backlog"
-            element={
-              <ProtectedRoute>
-                <BacklogPage />
               </ProtectedRoute>
             }
           />

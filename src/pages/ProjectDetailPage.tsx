@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Settings, Users, Folder, Trash2, Plus, X 
+  ArrowLeft, Settings, Users, Folder, Trash2, Plus, X, ListTodo, Calendar, AlertCircle
 } from 'lucide-react';
 import { projectApi } from '../api/projectApi';
 import { projectMemberApi } from '../api/projectMemberApi';
-import { useMeetingStore } from '../store/useMeetingStore';
+import { iterationApi } from '../api/iterationApi';
+import { useMeetingStore, Iteration, IterationStatus } from '../store/useMeetingStore';
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,11 @@ export const ProjectDetailPage: React.FC = () => {
   const [newMemberUserId, setNewMemberUserId] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('MEMBER');
 
+  // Iteration state
+  const [iterations, setIterations] = useState<Iteration[]>([]);
+  const [isAddingIteration, setIsAddingIteration] = useState(false);
+  const [newIteration, setNewIteration] = useState({ name: '', goal: '', start_date: '', end_date: '' });
+
   const isAdminOrOwner = user?.role === 'ORGANIZATION_OWNER' || user?.role === 'ORGANIZATION_ADMIN';
   const canEdit = isAdminOrOwner || members.find(m => m.userId === user?.id)?.role === 'PROJECT_OWNER';
 
@@ -45,6 +51,9 @@ export const ProjectDetailPage: React.FC = () => {
 
       const mems = await projectMemberApi.listMembers(projectId);
       setMembers(mems);
+
+      const iters = await iterationApi.listIterations(projectId);
+      setIterations(iters);
     } catch (error) {
       console.error(error);
       alert('Failed to load project');
@@ -104,6 +113,31 @@ export const ProjectDetailPage: React.FC = () => {
     }
   };
 
+  const handleAddIteration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !canEdit) return;
+    try {
+      await iterationApi.createIteration(id, newIteration);
+      setIsAddingIteration(false);
+      setNewIteration({ name: '', goal: '', start_date: '', end_date: '' });
+      const iters = await iterationApi.listIterations(id);
+      setIterations(iters);
+    } catch (error: any) {
+      alert(error.message || 'Failed to create sprint');
+    }
+  };
+
+  const handleUpdateIterationStatus = async (iterationId: string, status: IterationStatus) => {
+    if (!id || !canEdit) return;
+    try {
+      await iterationApi.updateIteration(id, iterationId, { status });
+      const iters = await iterationApi.listIterations(id);
+      setIterations(iters);
+    } catch (error: any) {
+      alert(error.message || 'Failed to update sprint status');
+    }
+  };
+
   if (loading) return <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center">Loading...</div>;
 
   return (
@@ -139,15 +173,6 @@ export const ProjectDetailPage: React.FC = () => {
                 <Trash2 size={16} /> Delete
               </button>
             )}
-            <button 
-              onClick={() => {
-                useMeetingStore.getState().setCurrentProject(project);
-                navigate(`/projects/${id}/backlog`);
-              }}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-xs uppercase tracking-widest shadow-md shadow-indigo-500/20 hover:bg-indigo-700 transition-all"
-            >
-              Open Backlog
-            </button>
             <button 
               onClick={() => {
                 useMeetingStore.getState().setCurrentProject(project);
@@ -205,6 +230,93 @@ export const ProjectDetailPage: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Iterations Panel */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <ListTodo className="text-slate-400" size={20} />
+                  <h2 className="text-lg font-bold text-slate-900">Sprints (Iterations)</h2>
+                </div>
+                {canEdit && (
+                  <button onClick={() => setIsAddingIteration(!isAddingIteration)} className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-lg shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-2">
+                    {isAddingIteration ? <X size={16} /> : <Plus size={16} />} 
+                    {isAddingIteration ? 'Cancel' : 'New Sprint'}
+                  </button>
+                )}
+              </div>
+
+              {isAddingIteration && canEdit && (
+                <div className="p-6 bg-slate-50 border-b border-slate-100">
+                  <form onSubmit={handleAddIteration} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2 col-span-2 sm:col-span-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Sprint Name</label>
+                        <input type="text" required value={newIteration.name} onChange={e => setNewIteration({...newIteration, name: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm" placeholder="e.g. Sprint 1" />
+                      </div>
+                      <div className="space-y-2 col-span-2 sm:col-span-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Sprint Goal (Optional)</label>
+                        <input type="text" value={newIteration.goal} onChange={e => setNewIteration({...newIteration, goal: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm" placeholder="Goal of this sprint" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Start Date</label>
+                        <input type="date" required value={newIteration.start_date} onChange={e => setNewIteration({...newIteration, start_date: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm text-slate-700" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">End Date</label>
+                        <input type="date" required value={newIteration.end_date} onChange={e => setNewIteration({...newIteration, end_date: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl py-2.5 px-4 text-sm text-slate-700" />
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 shadow-md">Create Sprint</button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              <div className="divide-y divide-slate-100">
+                {iterations.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Calendar className="mx-auto text-slate-300 mb-3" size={32} />
+                    <p className="text-slate-500 font-medium">No sprints created yet.</p>
+                  </div>
+                ) : (
+                  iterations.map(iter => (
+                    <div key={iter.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-bold text-slate-900">{iter.name}</h3>
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                            iter.status === IterationStatus.ACTIVE ? 'bg-emerald-100 text-emerald-700' :
+                            iter.status === IterationStatus.PLANNING ? 'bg-blue-100 text-blue-700' :
+                            iter.status === IterationStatus.COMPLETED ? 'bg-slate-100 text-slate-600' :
+                            'bg-rose-100 text-rose-700'
+                          }`}>
+                            {iter.status}
+                          </span>
+                        </div>
+                        {iter.goal && <p className="text-sm text-slate-600 mb-2">{iter.goal}</p>}
+                        <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                          <Calendar size={14} />
+                          <span>{iter.start_date} to {iter.end_date}</span>
+                        </div>
+                      </div>
+                      
+                      {canEdit && (
+                        <div className="flex items-center gap-2">
+                          {iter.status === IterationStatus.PLANNING && (
+                            <button onClick={() => handleUpdateIterationStatus(iter.id, IterationStatus.ACTIVE)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors shadow-sm">Start Sprint</button>
+                          )}
+                          {iter.status === IterationStatus.ACTIVE && (
+                            <button onClick={() => handleUpdateIterationStatus(iter.id, IterationStatus.COMPLETED)} className="px-3 py-1.5 bg-slate-900 text-white hover:bg-slate-800 rounded-lg text-xs font-bold transition-colors shadow-sm">Complete</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
