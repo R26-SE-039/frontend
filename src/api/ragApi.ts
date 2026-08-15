@@ -1,5 +1,14 @@
 import { RAG_API_URL } from './config';
 
+export interface InvestValidation {
+  Independent?: boolean;
+  Negotiable?: boolean;
+  Valuable?: boolean;
+  Estimable?: boolean;
+  Small?: boolean;
+  Testable?: boolean;
+}
+
 export interface GeneratedStory {
   story_id: string;
   title: string;
@@ -10,23 +19,44 @@ export interface GeneratedStory {
   status: string;
   clarification_questions: string[];
   evidence_refs: string[];
+  invest_validation?: InvestValidation;
 }
 
 export interface StoryIssue {
   severity: 'high' | 'medium' | 'low';
   issue: string;
-  recommendation: string;
-  context: string;
+  recommendation?: string;
+  context?: string;
+  detail?: string;
+  issue_type?: string;
 }
 
-export interface PipelineRunResponse {
-  transcript_id: string;
-  indexed_chunks: number;
-  query: string;
-  stories: GeneratedStory[];
-  issues: StoryIssue[];
-  evidence_chunk_ids: string[];
+export interface ValidationResult {
+  story_id: string;
+  rule_score: number;
+  evidence_score: number;
+  semantic_similarity: number;
+  invest_score: number;
+  hallucination_score: number;
+  overall_quality_score: number;
+  status: 'Approved' | 'Needs Review' | 'Rejected' | string;
+  recommendation: string;
+  invest_breakdown?: InvestValidation;
+  issues?: StoryIssue[];
 }
+
+
+export interface PipelineRunResponse {
+  transcript_id?: string;
+  meeting_id?: string;
+  indexed_chunks?: number;
+  query?: string;
+  stories: GeneratedStory[];
+  issues?: StoryIssue[];
+  evidence_chunk_ids?: string[];
+  validation_results?: ValidationResult[];
+}
+
 
 export interface PipelineRunRequest {
   transcript: any;

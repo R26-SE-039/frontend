@@ -23,6 +23,7 @@ export interface TranscriptEntry {
 }
 
 export interface RequirementEntry {
+  id?: string;
   requirement_id: string;
   meeting_id?: string;
   requirement_text: string;
@@ -31,19 +32,74 @@ export interface RequirementEntry {
 }
 
 export interface ConflictEntry {
+  id?: string;
   conflict_id: string;
   requirement_a_id: string;
   requirement_b_id: string;
   conflict_type: string;
   severity: 'low' | 'medium' | 'high';
   explanation: string;
+  source_meeting_id?: string;
+  source_meeting_title?: string;
+  suggested_resolution?: string;
+  requirement_a_text?: string;
+  requirement_b_text?: string;
 }
+
+export interface ThreadEntry {
+  id?: string;
+  thread_id?: string;
+  meeting_id: string;
+  requirement_title?: string;
+  summary?: string;
+  thread_label?: string;
+  summary_text?: string;
+  summary_embedding?: number[];
+  topic_label?: string;
+  entities?: string[];
+  state: string;
+  requirement_id?: string | null;
+  last_activity_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  classification_confidence?: number;
+  match_confidence?: number;
+  created_by?: string;
+  timestamp?: string;
+  utterance_text?: string;
+}
+
+const normalizeRequirement = (r: any): RequirementEntry => ({
+  id: r.id,
+  requirement_id: r.requirement_id || r.id || '',
+  meeting_id: r.meeting_id,
+  requirement_text: r.requirement_text || r.text || '',
+  requirement_type: r.requirement_type || r.type || 'functional',
+  status: r.status || 'active',
+});
+
+const normalizeConflict = (c: any): ConflictEntry => ({
+  id: c.id,
+  conflict_id: c.conflict_id || c.id || '',
+  requirement_a_id: c.requirement_a_id,
+  requirement_b_id: c.requirement_b_id,
+  conflict_type: c.conflict_type || 'functional',
+  severity: c.severity || 'medium',
+  explanation: c.explanation || '',
+  source_meeting_id: c.source_meeting_id,
+  source_meeting_title: c.source_meeting_title,
+  suggested_resolution: c.suggested_resolution,
+  requirement_a_text: c.requirement_a_text,
+  requirement_b_text: c.requirement_b_text,
+});
+
 
 export interface User {
   id: string;
   name: string;
   email: string;
   meetingId: string;
+  meetingTitle?: string;
   agileRole: string;
   accessToken: string;
   firstName?: string;
@@ -62,6 +118,26 @@ export interface Project {
   memberCount: number;
   userRole: 'Admin' | 'Editor' | 'Viewer';
   isPrivate: boolean;
+}
+
+export enum IterationStatus {
+  PLANNING = 'PLANNING',
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export interface Iteration {
+  id: string;
+  project_id: string;
+  name: string;
+  goal: string | null;
+  start_date: string;
+  end_date: string;
+  status: IterationStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ChatMessage {
@@ -125,13 +201,20 @@ interface MeetingState {
 
   // Requirements
   requirements: RequirementEntry[];
+  setRequirements: (reqs: RequirementEntry[]) => void;
   addRequirements: (reqs: RequirementEntry[]) => void;
   clearRequirements: () => void;
 
   // Conflicts
   conflicts: ConflictEntry[];
+  setConflicts: (conflicts: ConflictEntry[]) => void;
   addConflicts: (conflicts: ConflictEntry[]) => void;
   clearConflicts: () => void;
+
+  // Discussion Threads
+  threads: ThreadEntry[];
+  setThreads: (threads: ThreadEntry[]) => void;
+  clearThreads: () => void;
 }
 
 export const useMeetingStore = create<MeetingState>()(
@@ -155,6 +238,8 @@ export const useMeetingStore = create<MeetingState>()(
       chatMessages: [],
       requirements: [],
       conflicts: [],
+      threads: [],
+
 
       // Actions
       setUser: (user) => {
@@ -167,16 +252,14 @@ export const useMeetingStore = create<MeetingState>()(
       },
       setCurrentProject: (currentProject) => set({ currentProject }),
       logout: async () => {
-        const token = get().user?.accessToken;
+        const user = get().user;
+        const token = user?.accessToken;
+        const refreshToken = user?.refreshToken;
         set({ user: null, currentProject: null });
         // Clear all state on logout
         localStorage.removeItem('meeting-storage');
-        if (token) {
-          try {
-            await authApi.logout(token);
-          } catch (e) {
-            console.error('Logout API failed:', e);
-          }
+        if (token || refreshToken) {
+          await authApi.logout(token, refreshToken);
         }
       },
       setTheme: (theme) => set({ theme }),
@@ -201,12 +284,18 @@ export const useMeetingStore = create<MeetingState>()(
           p.id === id ? { ...p, isSpeaking } : p
         )
       })),
-      setParticipants: (participants) => set((state) => ({ 
-        participants: participants.map(p => ({
-          ...p,
-          id: p.name === state.user?.name ? 'me' : p.id
-        }))
-      })),
+      setParticipants: (participants) => set((state) => {
+        let assignedMe = false;
+        return {
+          participants: participants.map(p => {
+            if (p.name === state.user?.name && !assignedMe) {
+              assignedMe = true;
+              return { ...p, id: 'me' };
+            }
+            return p;
+          })
+        };
+      }),
 
       addTranscriptEntry: (entry) => set((state) => {
         const lastEntry = state.transcript[state.transcript.length - 1];
@@ -256,23 +345,36 @@ export const useMeetingStore = create<MeetingState>()(
 
       clearChat: () => set({ chatMessages: [] }),
 
-      addRequirements: (reqs) => set((state) => ({
-        requirements: [
-          ...state.requirements,
-          ...reqs.filter(r => !state.requirements.find(existing => existing.requirement_id === r.requirement_id))
-        ]
-      })),
+      setRequirements: (reqs) => set({
+        requirements: reqs.map(normalizeRequirement)
+      }),
+
+      addRequirements: (reqs) => set((state) => {
+        const normalized = reqs.map(normalizeRequirement);
+        const map = new Map<string, RequirementEntry>();
+        state.requirements.forEach(r => map.set(r.requirement_id, r));
+        normalized.forEach(r => map.set(r.requirement_id, r));
+        return { requirements: Array.from(map.values()) };
+      }),
 
       clearRequirements: () => set({ requirements: [] }),
 
-      addConflicts: (conflicts) => set((state) => ({
-        conflicts: [
-          ...state.conflicts,
-          ...conflicts.filter(c => !state.conflicts.find(existing => existing.conflict_id === c.conflict_id))
-        ]
-      })),
+      setConflicts: (conflicts) => set({
+        conflicts: conflicts.map(normalizeConflict)
+      }),
+
+      addConflicts: (conflicts) => set((state) => {
+        const normalized = conflicts.map(normalizeConflict);
+        const map = new Map<string, ConflictEntry>();
+        state.conflicts.forEach(c => map.set(c.conflict_id, c));
+        normalized.forEach(c => map.set(c.conflict_id, c));
+        return { conflicts: Array.from(map.values()) };
+      }),
 
       clearConflicts: () => set({ conflicts: [] }),
+
+      setThreads: (threads) => set({ threads }),
+      clearThreads: () => set({ threads: [] }),
     }),
     {
       name: 'meeting-storage',

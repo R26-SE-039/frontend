@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createWorkletBlobUrl } from '../utils/audioWorkletProcessor';
 import { useMeetingStore } from '../store/useMeetingStore';
+import { meetingApi } from '../api/meetingApi';
 
 import { WS_BASE_URL } from '../api/config';
 
@@ -37,7 +38,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
     const [isMicActive, setIsMicActive] = useState<boolean>(false);
     const [acousticFeatures, setAcousticFeatures] = useState<AcousticFeatures>({ pitch: 0, energy: 0 });
     const [isConnected, setIsConnected] = useState<boolean>(false);
-    
+
     const wsRef = useRef<WebSocket | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -47,8 +48,9 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastMeetingIdRef = useRef<string | null>(null);
     const heartbeatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reconnectAttemptsRef = useRef<number>(0);
 
-    const { 
+    const {
         user, addTranscriptEntry, isMuted, setParticipants, addChatMessage,
         clearTranscript, clearChat, addRequirements, addConflicts
     } = useMeetingStore();
@@ -57,8 +59,8 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
     // isMutedRef is initialized with live value (not hardcoded true) so it's
     // correct even if the store has a non-default value on first render.
     const isMutedRef = useRef<boolean>(isMuted);
-    const startMicRef = useRef<() => Promise<void>>(async () => {});
-    const stopMicRef = useRef<() => void>(() => {});
+    const startMicRef = useRef<() => Promise<void>>(async () => { });
+    const stopMicRef = useRef<() => void>(() => { });
     const isMeetingEndedRef = useRef<boolean>(isMeetingEnded);
 
     // Keep isMutedRef in sync so ws.onopen can read current value without stale closure
@@ -83,11 +85,11 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
     // ─── WebSocket: Connect on mount, auto-reconnect ───────────────
     const connectWebSocket = useCallback(() => {
         if (!user?.meetingId || isMeetingEndedRef.current) return;
-        
+
         // If meeting ID changed, force close old connection and CLEAR LOCAL STATE
         if (lastMeetingIdRef.current !== user.meetingId) {
             console.log('[WS] Meeting ID changed, clearing old state and reconnecting');
-            
+
             // Clear the store so we don't see previous meeting's data
             clearTranscript();
             clearChat();
@@ -100,7 +102,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
         }
 
         // Don't reconnect if already open or connecting
-        if (wsRef.current?.readyState === WebSocket.OPEN || 
+        if (wsRef.current?.readyState === WebSocket.OPEN ||
             wsRef.current?.readyState === WebSocket.CONNECTING) return;
 
         const wsUrl = `${BASE_WS_URL}/${user.meetingId}?name=${encodeURIComponent(user.name)}&role=${encodeURIComponent(user.agileRole || '')}`;
@@ -111,7 +113,8 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
         ws.onopen = () => {
             console.log('[WS] ✅ Connected');
             setIsConnected(true);
-            
+            reconnectAttemptsRef.current = 0; // Reset backoff on successful connection
+
             // Start heartbeat to prevent connection timeout
             heartbeatTimerRef.current = setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -130,12 +133,15 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
             console.log('[WS] Disconnected — will retry in 3s');
             setIsConnected(false);
             if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
-            
-            // Auto-reconnect after 3 seconds
+
+            // Exponential backoff: 3s, 6s, 12s, up to 30s max
             if (!isMeetingEndedRef.current) {
+                const delay = Math.min(3000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+                reconnectAttemptsRef.current += 1;
+                console.log(`[WS] Reconnecting in ${delay / 1000}s (attempt ${reconnectAttemptsRef.current})`);
                 reconnectTimerRef.current = setTimeout(() => {
                     connectWebSocket();
-                }, 3000);
+                }, delay);
             }
         };
 
@@ -143,7 +149,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
         ws.onerror = (error) => {
             console.error('[WS] Error:', error);
         };
-        
+
         ws.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data);
@@ -178,6 +184,19 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
                     case 'conflicts':
                         addConflicts(data);
                         break;
+                    case 'THREAD_CREATED':
+                    case 'THREAD_UPDATED':
+                    case 'THREAD_STATE_CHANGED':
+                        if (user?.meetingId) {
+                            meetingApi.getThreads(user.meetingId)
+                                .then(res => {
+                                    if (res.status === 'success') {
+                                        useMeetingStore.getState().setThreads(res.threads);
+                                    }
+                                })
+                                .catch(err => console.error('Failed to refetch threads:', err));
+                        }
+                        break;
                     case 'error':
                         console.error('[WS] Backend error:', data.message);
                         break;
@@ -199,63 +218,121 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             if (wsRef.current) wsRef.current.close();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.meetingId]);
 
     // ─── Mic: Start/Stop audio streaming ──────────────────────────
     const startMic = useCallback(async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    echoCancellation: true, 
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                    sampleRate: 16000,
-                } 
+            // Disable browser-side audio processing — Azure Speech SDK performs its own
+            // noise reduction and echo cancellation. Browser AEC/NoiseSuppression can
+            // produce all-zero (silent) output that blocks speech recognition entirely.
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    sampleRate: { ideal: 48000 },
+                    channelCount: { ideal: 1 },
+                }
             });
             streamRef.current = stream;
 
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-                sampleRate: 16000
-            });
+            const audioTrack = stream.getAudioTracks()[0];
+            console.log(`[Mic] Track: ${audioTrack?.label}, enabled=${audioTrack?.enabled}, muted=${audioTrack?.muted}, readyState=${audioTrack?.readyState}`);
+
+            // ── OS/Hardware muted track detection ────────────────────────────
+            // muted=true means the OS/hardware is blocking mic audio (not the app).
+            // Common causes: Windows Privacy settings, hardware mute key (Fn+F4),
+            // Intel SST mic disabled, or another app has exclusive mic access.
+            if (audioTrack?.muted) {
+                console.error(
+                    '[Mic] ❌ Microphone track is muted at OS/hardware level!\n' +
+                    '  → Check: Windows Settings > Privacy & security > Microphone\n' +
+                    '  → Check: Taskbar speaker icon > Sound settings > Input volume\n' +
+                    '  → Check: Keyboard mic mute key (Fn+F4 or similar)\n' +
+                    '  → Waiting for hardware unmute event...'
+                );
+                // Wait for the OS/hardware to unmute the track (e.g. user presses mute key)
+                await new Promise<void>((resolve) => {
+                    const onUnmute = () => {
+                        console.log('[Mic] ✅ Track unmuted by OS/hardware — starting audio...');
+                        resolve();
+                    };
+                    audioTrack.addEventListener('unmute', onUnmute, { once: true });
+                    // Also clean up if stopMic is called while waiting
+                    audioTrack.addEventListener('ended', () => resolve(), { once: true });
+                });
+                // Re-check state after unmute
+                if (audioTrack.readyState === 'ended') {
+                    console.warn('[Mic] Track ended while waiting for unmute — aborting.');
+                    return;
+                }
+            }
+
+            // Let the AudioContext run at the hardware's native sample rate.
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
             audioContextRef.current = audioContext;
 
-            // Force resume if browser started it in suspended state
-            if (audioContext.state === 'suspended') {
+            if (audioContext.state !== 'running') {
+                console.warn(`[Mic] AudioContext state is "${audioContext.state}", attempting resume...`);
                 await audioContext.resume();
             }
 
+            if (audioContext.state !== 'running') {
+                console.error('[Mic] AudioContext failed to start — audio will be silent!');
+            }
+
+            const nativeSampleRate = audioContext.sampleRate;
+            console.log(`[Mic] AudioContext state=${audioContext.state}, sampleRate=${nativeSampleRate} Hz`);
+
             const source = audioContext.createMediaStreamSource(stream);
             sourceRef.current = source;
-            
-            // Fix #4: Use AudioWorkletNode (modern replacement for deprecated ScriptProcessorNode).
-            // AudioWorklet runs in the audio thread and survives tab backgrounding.
+
             const blobUrl = createWorkletBlobUrl();
             workletBlobUrlRef.current = blobUrl;
             await audioContext.audioWorklet.addModule(blobUrl);
 
-            const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+            const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor', {
+                processorOptions: { inputSampleRate: nativeSampleRate },
+            });
             workletNodeRef.current = workletNode;
 
-            // Receive PCM chunks from the audio thread and send over WebSocket
+            let chunkCount = 0;
             workletNode.port.onmessage = (event: MessageEvent) => {
+                chunkCount++;
+                if (chunkCount % 25 === 0) {
+                    const samples = new Int16Array(event.data as ArrayBuffer);
+                    let sumSq = 0;
+                    for (let i = 0; i < samples.length; i++) sumSq += samples[i] * samples[i];
+                    const rms = Math.sqrt(sumSq / samples.length);
+                    if (rms < 50) {
+                        console.warn(`[Mic] ⚠️ Chunk #${chunkCount}: RMS=${rms.toFixed(1)} — silence (check OS mic)`);
+                    } else {
+                        console.log(`[Mic] ✅ Chunk #${chunkCount}: RMS=${rms.toFixed(1)} — audio active`);
+                    }
+                }
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
                     wsRef.current.send(event.data as ArrayBuffer);
                 }
             };
 
-            // Fix #5: Do not connect worklet directly to destination, or browser echo 
-            // cancellation will completely mute the mic to prevent feedback!
-            // Instead, connect to a muted GainNode.
+            // Listen for hardware mute/unmute events at runtime
+            audioTrack.addEventListener('mute', () =>
+                console.warn('[Mic] ⚠️ Track muted by OS/hardware mid-session — audio will be silent until unmuted')
+            );
+            audioTrack.addEventListener('unmute', () =>
+                console.log('[Mic] ✅ Track unmuted by OS/hardware — audio resumed')
+            );
+
             const gainNode = audioContext.createGain();
             gainNode.gain.value = 0;
-            
             source.connect(workletNode);
             workletNode.connect(gainNode);
             gainNode.connect(audioContext.destination);
-            
+
             setIsMicActive(true);
-            console.log('[Mic] 🎤 Unmuted — streaming audio (AudioWorklet)');
+            console.log('[Mic] ✅ Mic started — streaming at ' + nativeSampleRate + ' Hz');
         } catch (err) {
             console.error('[Mic] Error accessing microphone:', err);
         }
@@ -283,7 +360,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
-        
+
         setIsMicActive(false);
         console.log('[Mic] 🔇 Muted — audio stream stopped');
     }, []);
@@ -307,7 +384,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
         } else {
             stopMic();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMuted]);
 
     // Cleanup mic on unmount
@@ -315,16 +392,16 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
         return () => {
             stopMic();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const sendChat = useCallback((text: string) => {
         if (!text.trim()) return;
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ 
-                type: 'chat', 
+            wsRef.current.send(JSON.stringify({
+                type: 'chat',
                 text: text.trim(),
-                sender: user?.name 
+                sender: user?.name
             }));
         } else {
             console.warn('[Chat] WebSocket not open, cannot send message');
@@ -337,7 +414,7 @@ export const useSpeechSocket = (isMeetingEnded: boolean = false): UseSpeechSocke
         acousticFeatures,
         // toggleMic is a no-op — mic is controlled by isMuted in the store.
         // Call useMeetingStore().toggleMic() from the UI to mute/unmute.
-        toggleMic: async () => {},
+        toggleMic: async () => { },
         sendChat,
     };
 };
