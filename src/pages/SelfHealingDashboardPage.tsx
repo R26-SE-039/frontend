@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { failureAnalysisApi } from '../api/failureAnalysisApi';
 import StatCard from '../components/selfHealing/StatCard';
 import StatusBadge from '../components/selfHealing/StatusBadge';
+import { useMeetingStore } from '../store/useMeetingStore';
 import type { DashboardSummary } from '../types/selfHealing';
 
 const EMPTY_SUMMARY: DashboardSummary = {
@@ -28,6 +29,7 @@ function MetricRow({ label, value, badgeClass, code }: { label: string; value: n
 }
 
 export const SelfHealingDashboardPage: React.FC = () => {
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +49,10 @@ export const SelfHealingDashboardPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setSummary(EMPTY_SUMMARY);
+    if (!projectId) return;
     loadSummary();
-  }, []);
+  }, [projectId]);
 
   const dashboardStats = [
     {

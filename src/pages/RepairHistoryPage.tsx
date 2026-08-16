@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Filter, RotateCcw } from 'lucide-react';
 import RepairHistoryTable from '../components/selfHealing/RepairHistoryTable';
 import { failureAnalysisApi } from '../api/failureAnalysisApi';
+import { useMeetingStore } from '../store/useMeetingStore';
 import type { RepairHistoryItem } from '../types/selfHealing';
 
 const ROOT_CAUSES = [
@@ -39,6 +40,7 @@ function optionLabel(value: string) {
 }
 
 export const RepairHistoryPage: React.FC = () => {
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
   const [rootCause, setRootCause] = useState('');
   const [publishStatus, setPublishStatus] = useState('');
   const [repository, setRepository] = useState('');
@@ -55,6 +57,13 @@ export const RepairHistoryPage: React.FC = () => {
     let isMounted = true;
 
     const loadHistory = async () => {
+      if (!projectId) {
+        if (isMounted) {
+          setItems([]);
+          setLoading(false);
+        }
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -79,7 +88,7 @@ export const RepairHistoryPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [appliedFilters]);
+  }, [appliedFilters, projectId]);
 
   const applyFilters = (event: React.FormEvent) => {
     event.preventDefault();

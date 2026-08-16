@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { failureAnalysisApi } from '../api/failureAnalysisApi';
 import DeleteFailureButton from '../components/selfHealing/DeleteFailureButton';
 import StatusBadge from '../components/selfHealing/StatusBadge';
+import { useMeetingStore } from '../store/useMeetingStore';
 import type { Failure, ListResponse } from '../types/selfHealing';
 
 type FailureRecordsPageProps = {
@@ -25,6 +26,7 @@ function normalizeFailureResponse(response: ListResponse<Failure>, fallbackPage:
 }
 
 export const FailureRecordsPage: React.FC<FailureRecordsPageProps> = ({ onViewDetails }) => {
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [failures, setFailures] = useState<Failure[]>([]);
@@ -54,8 +56,12 @@ export const FailureRecordsPage: React.FC<FailureRecordsPageProps> = ({ onViewDe
   };
 
   useEffect(() => {
+    setFailures([]);
+    setTotal(0);
+    setTotalPages(1);
+    if (!projectId) return;
     loadFailures(page);
-  }, [page]);
+  }, [page, projectId]);
 
   const pageLabel = useMemo(() => {
     if (loading) return 'Loading records';
