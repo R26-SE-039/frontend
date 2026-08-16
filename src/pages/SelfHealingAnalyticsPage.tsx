@@ -6,6 +6,7 @@ import FailureTrendChart from '../components/selfHealing/FailureTrendChart';
 import FlakyRiskChart from '../components/selfHealing/FlakyRiskChart';
 import StatCard from '../components/selfHealing/StatCard';
 import StatusBadge from '../components/selfHealing/StatusBadge';
+import { useMeetingStore } from '../store/useMeetingStore';
 import type { FlakyTest, ListResponse } from '../types/selfHealing';
 
 function normalizeFlakyResponse(response: ListResponse<FlakyTest>, fallbackPage: number, fallbackLimit: number) {
@@ -24,6 +25,7 @@ function normalizeFlakyResponse(response: ListResponse<FlakyTest>, fallbackPage:
 }
 
 export const SelfHealingAnalyticsPage: React.FC = () => {
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [flakyTests, setFlakyTests] = useState<FlakyTest[]>([]);
@@ -53,8 +55,12 @@ export const SelfHealingAnalyticsPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setFlakyTests([]);
+    setTotal(0);
+    setTotalPages(1);
+    if (!projectId) return;
     loadFlakyTests(page);
-  }, [page]);
+  }, [page, projectId]);
 
   const analytics = useMemo(() => {
     const numericScores = flakyTests

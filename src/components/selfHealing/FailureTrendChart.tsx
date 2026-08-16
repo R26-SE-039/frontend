@@ -9,7 +9,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { FAILURE_ANALYSIS_API_URL } from '../../api/config';
+import { failureAnalysisApi } from '../../api/failureAnalysisApi';
+import { useMeetingStore } from '../../store/useMeetingStore';
 
 type TrendPoint = { name: string; failures: number };
 
@@ -18,6 +19,7 @@ type FailureTrendChartProps = {
 };
 
 export default function FailureTrendChart({ data: providedData }: FailureTrendChartProps) {
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
   const [data, setData] = useState<TrendPoint[]>(providedData || []);
   const [loading, setLoading] = useState(!providedData);
 
@@ -28,10 +30,17 @@ export default function FailureTrendChart({ data: providedData }: FailureTrendCh
       return;
     }
 
-    let isMounted = true;
+    if (!projectId) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
 
-    fetch(`${FAILURE_ANALYSIS_API_URL}/dashboard/trend`)
-      .then((response) => (response.ok ? response.json() : []))
+    let isMounted = true;
+    setData([]);
+    setLoading(true);
+
+    failureAnalysisApi.fetchFailureTrend()
       .then((payload) => {
         if (isMounted && Array.isArray(payload)) setData(payload);
       })
@@ -45,7 +54,7 @@ export default function FailureTrendChart({ data: providedData }: FailureTrendCh
     return () => {
       isMounted = false;
     };
-  }, [providedData]);
+  }, [providedData, projectId]);
 
   if (loading) {
     return <div className="h-[280px] w-full animate-pulse rounded-xl bg-[var(--card-2)]" />;

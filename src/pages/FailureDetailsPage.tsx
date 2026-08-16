@@ -4,6 +4,7 @@ import { AlertCircle, ArrowLeft, ClipboardList, LockKeyhole, RefreshCw, ShieldCh
 import { failureAnalysisApi } from '../api/failureAnalysisApi';
 import FailureActionButtons from '../components/selfHealing/FailureActionButtons';
 import StatusBadge from '../components/selfHealing/StatusBadge';
+import { useMeetingStore } from '../store/useMeetingStore';
 import type { Failure } from '../types/selfHealing';
 
 type FailureDetailsPageProps = {
@@ -48,6 +49,7 @@ export const FailureDetailsPage: React.FC<FailureDetailsPageProps> = ({
   onViewActionHistory,
   onRunNewDiagnosis,
 }) => {
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
   const params = useParams();
   const routeId = params.id || params['*'];
   const resolvedFailureId = useMemo(() => failureId || routeId || '', [failureId, routeId]);
@@ -78,8 +80,10 @@ export const FailureDetailsPage: React.FC<FailureDetailsPageProps> = ({
   };
 
   useEffect(() => {
+    setFailure(null);
+    if (!projectId) return;
     loadFailure();
-  }, [resolvedFailureId]);
+  }, [resolvedFailureId, projectId]);
 
   if (loading) {
     return (

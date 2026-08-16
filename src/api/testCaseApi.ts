@@ -324,7 +324,7 @@ export const testCaseApi = {
     }),
 };
 
-// ── WebSocket streams (bypass the dev proxy, connect straight to the backend) ─
+// WebSocket streams through the API Gateway.
 
 export function openCrawlLogStream(runId: string, onLog: (line: string) => void, onEnd?: () => void): WebSocket {
   const ws = new WebSocket(`${TEST_CASE_WS_URL}/ws/dom/crawl/${encodeURIComponent(runId)}`);

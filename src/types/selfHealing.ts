@@ -1,5 +1,12 @@
 export type Failure = {
   id: number;
+  organization_id?: string | null;
+  project_id?: string | null;
+  iteration_id?: string | null;
+  user_story_id?: string | null;
+  suite_id?: string | null;
+  execution_id?: string | null;
+  test_run_id?: string | null;
   test_id: string;
   test_name: string;
   pipeline: string;
@@ -16,6 +23,7 @@ export type Failure = {
 
 export type HealingAction = {
   id: number;
+  failure_id?: number | null;
   healing_id: string;
   failure_test_id: string;
   test_name: string;
@@ -27,6 +35,10 @@ export type HealingAction = {
 
 export type FlakyTest = {
   id: number;
+  organization_id?: string | null;
+  project_id?: string | null;
+  suite_id?: string | null;
+  latest_test_run_id?: string | null;
   test_code: string;
   test_name: string;
   instability_score: string;
@@ -36,6 +48,7 @@ export type FlakyTest = {
 
 export type Notification = {
   id: number;
+  failure_id?: number | null;
   failure_test_id: string;
   test_name: string;
   root_cause: string;

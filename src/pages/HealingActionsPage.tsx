@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { failureAnalysisApi } from '../api/failureAnalysisApi';
 import DeleteRecordButton from '../components/selfHealing/DeleteRecordButton';
 import StatusBadge from '../components/selfHealing/StatusBadge';
+import { useMeetingStore } from '../store/useMeetingStore';
 import type { HealingAction, ListResponse } from '../types/selfHealing';
 
 function normalizeHealingResponse(response: ListResponse<HealingAction>, fallbackPage: number, fallbackLimit: number) {
@@ -21,6 +22,7 @@ function normalizeHealingResponse(response: ListResponse<HealingAction>, fallbac
 }
 
 export const HealingActionsPage: React.FC = () => {
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [healingActions, setHealingActions] = useState<HealingAction[]>([]);
@@ -50,8 +52,12 @@ export const HealingActionsPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setHealingActions([]);
+    setTotal(0);
+    setTotalPages(1);
+    if (!projectId) return;
     loadHealingActions(page);
-  }, [page]);
+  }, [page, projectId]);
 
   const pageLabel = useMemo(() => {
     if (loading) return 'Loading records';
