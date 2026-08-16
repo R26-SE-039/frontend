@@ -221,4 +221,23 @@ export const meetingApi = {
     }
     return response.json();
   },
+
+  getIterationHistory: async (projectId: string) => {
+    const response = await authenticatedFetch(`${RAG_API_URL}/speech/project/${projectId}/iteration/history`);
+    if (!response.ok) throw new Error('Failed to fetch iteration history');
+    return response.json();
+  },
+
+  getMeetingsByIteration: async (iterationId: string) => {
+    const response = await authenticatedFetch(`${RAG_API_URL}/speech/iteration/${iterationId}/meetings`);
+    if (!response.ok) throw new Error('Failed to fetch iteration meetings');
+    return response.json();
+  },
+
+  getMeetingStories: async (meetingId: string) => {
+    const response = await authenticatedFetch(`${RAG_API_URL}/speech/meeting/${meetingId}/stories`);
+    if (!response.ok) throw new Error('Failed to fetch meeting stories');
+    return response.json();
+  },
 };
+
