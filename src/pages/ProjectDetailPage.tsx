@@ -39,6 +39,15 @@ export const ProjectDetailPage: React.FC = () => {
   const [isEditingConfig, setIsEditingConfig] = useState(false);
   const [hasConfig, setHasConfig] = useState(false);
 
+  // Jira Config state
+  const [jiraUrl, setJiraUrl] = useState('');
+  const [jiraEmail, setJiraEmail] = useState('');
+  const [jiraPat, setJiraPat] = useState('');
+  const [jiraProjectKey, setJiraProjectKey] = useState('');
+  const [isEditingJiraConfig, setIsEditingJiraConfig] = useState(false);
+  const [hasJiraConfig, setHasJiraConfig] = useState(false);
+  const [isTestingJira, setIsTestingJira] = useState(false);
+
   const isAdminOrOwner = user?.role === 'ORGANIZATION_OWNER' || user?.role === 'ORGANIZATION_ADMIN';
   const canEdit = isAdminOrOwner || members.find(m => m.userId === user?.id)?.role === 'PROJECT_OWNER';
 
@@ -65,13 +74,23 @@ export const ProjectDetailPage: React.FC = () => {
       try {
         const config = await projectConfigApi.getConfiguration(projectId);
         if (config) {
-          setRepoUrl(config.repo_url);
-          setPat(config.personal_access_token);
-          setHasConfig(true);
+          setRepoUrl(config.repo_url || '');
+          setPat(config.personal_access_token || '');
+          setJiraUrl(config.jira_url || '');
+          setJiraEmail(config.jira_email || '');
+          setJiraPat(config.jira_api_token || '');
+          setJiraProjectKey(config.jira_project_key || '');
+          setHasConfig(!!config.repo_url);
+          setHasJiraConfig(!!config.jira_url);
         } else {
           setRepoUrl('');
           setPat('');
+          setJiraUrl('');
+          setJiraEmail('');
+          setJiraPat('');
+          setJiraProjectKey('');
           setHasConfig(false);
+          setHasJiraConfig(false);
         }
       } catch (err) {
         console.error('Failed to load project config', err);
@@ -168,13 +187,73 @@ export const ProjectDetailPage: React.FC = () => {
         repoUrl,
         personalAccessToken: pat
       });
-      setRepoUrl(updated.repo_url);
-      setPat(updated.personal_access_token);
+      setRepoUrl(updated.repo_url || '');
+      setPat(updated.personal_access_token || '');
       setHasConfig(true);
       setIsEditingConfig(false);
       alert('Project configuration saved successfully');
     } catch (error: any) {
       alert(error.message || 'Failed to save project configuration');
+    }
+  };
+
+  const handleSaveJiraConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !canEdit) return;
+    try {
+      const updated = await projectConfigApi.saveConfiguration(id, {
+        jiraUrl,
+        jiraEmail,
+        jiraApiToken: jiraPat,
+        jiraProjectKey
+      });
+      setJiraUrl(updated.jira_url || '');
+      setJiraEmail(updated.jira_email || '');
+      setJiraPat(updated.jira_api_token || '');
+      setJiraProjectKey(updated.jira_project_key || '');
+      setHasJiraConfig(true);
+      setIsEditingJiraConfig(false);
+      alert('Jira configuration saved successfully');
+    } catch (error: any) {
+      alert(error.message || 'Failed to save Jira configuration');
+    }
+  };
+
+  const handleTestJiraConnection = async () => {
+    if (!id) return;
+    setIsTestingJira(true);
+    try {
+      const res = await projectConfigApi.testJiraConnection(id, {
+        jiraUrl,
+        jiraEmail,
+        jiraApiToken: jiraPat
+      });
+      alert(res.message || 'Connection successful!');
+    } catch (error: any) {
+      alert(error.message || 'Connection failed. Please verify credentials.');
+    } finally {
+      setIsTestingJira(false);
+    }
+  };
+
+  const handleDisconnectJira = async () => {
+    if (!id || !canEdit) return;
+    if (!window.confirm('Are you sure you want to disconnect Jira integration?')) return;
+    try {
+      await projectConfigApi.saveConfiguration(id, {
+        jiraUrl: '',
+        jiraEmail: '',
+        jiraApiToken: '',
+        jiraProjectKey: ''
+      });
+      setJiraUrl('');
+      setJiraEmail('');
+      setJiraPat('');
+      setJiraProjectKey('');
+      setHasJiraConfig(false);
+      alert('Jira disconnected successfully');
+    } catch (error: any) {
+      alert(error.message || 'Failed to disconnect Jira');
     }
   };
 
@@ -331,6 +410,129 @@ export const ProjectDetailPage: React.FC = () => {
                       <p className="text-slate-500 font-medium">No Git repository connected yet.</p>
                       {canEdit && (
                         <button onClick={() => setIsEditingConfig(true)} className="mt-3 px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:border-blue-600 hover:text-blue-600 transition-colors">
+                          Configure Now
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Jira Configuration Panel */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">
+                    J
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Jira Integration</h2>
+                    <p className="text-xs text-slate-400 font-medium">Connect Jira Cloud to export meeting stories directly into your sprint backlogs.</p>
+                  </div>
+                </div>
+                {canEdit && !isEditingJiraConfig && (
+                  <div className="flex gap-2">
+                    {hasJiraConfig && (
+                      <button 
+                        type="button"
+                        onClick={handleDisconnectJira} 
+                        className="px-4 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 font-bold text-xs rounded-lg shadow-sm transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                    <button onClick={() => setIsEditingJiraConfig(true)} className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-lg shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-2">
+                      <Settings size={16} /> Edit
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {isEditingJiraConfig ? (
+                <form onSubmit={handleSaveJiraConfig} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Jira Domain URL</label>
+                      <input 
+                        type="url" required value={jiraUrl} onChange={e => setJiraUrl(e.target.value)} 
+                        placeholder="e.g. https://your-domain.atlassian.net" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-medium" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Jira Project Key</label>
+                      <input 
+                        type="text" required value={jiraProjectKey} onChange={e => setJiraProjectKey(e.target.value)} 
+                        placeholder="e.g. PROJ" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-medium" 
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Atlassian Email Address</label>
+                      <input 
+                        type="email" required value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} 
+                        placeholder="e.g. user@yourcompany.com" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-medium" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Jira API Token</label>
+                      <input 
+                        type="password" required value={jiraPat} onChange={e => setJiraPat(e.target.value)} 
+                        placeholder="Enter Atlassian API Token" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-medium" 
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <button 
+                      type="button" 
+                      disabled={isTestingJira || !jiraUrl || !jiraEmail || !jiraPat}
+                      onClick={handleTestJiraConnection}
+                      className="px-4 py-2 border border-slate-200 hover:border-blue-600 hover:text-blue-600 text-slate-600 rounded-lg font-bold text-xs transition-all disabled:opacity-50"
+                    >
+                      {isTestingJira ? 'Testing Connection...' : 'Test Jira Connection'}
+                    </button>
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => setIsEditingJiraConfig(false)} className="px-4 py-2 text-slate-600 font-bold text-sm hover:bg-slate-50 rounded-lg">Cancel</button>
+                      <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm shadow-md hover:bg-blue-700">Save Configuration</button>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  {hasJiraConfig ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Jira Domain</span>
+                          <p className="text-slate-900 font-medium mt-1">{jiraUrl}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Project Key</span>
+                          <p className="text-slate-900 font-medium mt-1">{jiraProjectKey}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Atlassian Email</span>
+                          <p className="text-slate-900 font-medium mt-1">{jiraEmail}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">API Token</span>
+                          <p className="text-slate-600 mt-1 font-mono text-sm">••••••••••••••••••••••••••••••••</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-4 text-center">
+                      <AlertCircle className="mx-auto text-slate-300 mb-3" size={32} />
+                      <p className="text-slate-500 font-medium">No Jira connection configured yet.</p>
+                      {canEdit && (
+                        <button onClick={() => setIsEditingJiraConfig(true)} className="mt-3 px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:border-blue-600 hover:text-blue-600 transition-colors">
                           Configure Now
                         </button>
                       )}

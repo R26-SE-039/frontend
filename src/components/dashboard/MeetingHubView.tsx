@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Globe, Shield, LogOut, Check, ArrowRight, History, Home } from 'lucide-react';
 import { InviteItem } from './InviteItem';
 import { IterationHistoryView } from './IterationHistoryView';
+import { useMeetingStore } from '../../store/useMeetingStore';
+import { projectConfigApi } from '../../api/projectConfigApi';
+import { iterationApi } from '../../api/iterationApi';
+import { meetingApi } from '../../api/meetingApi';
 
 interface MeetingHubViewProps {
   onJoin: (meetingId: string, passcode: string) => Promise<void>;
@@ -35,6 +39,43 @@ export const MeetingHubView: React.FC<MeetingHubViewProps> = ({
   const [mode, setMode] = useState<'instant' | 'scheduled'>('instant');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
+
+  const currentProject = useMeetingStore(state => state.currentProject);
+  const [jiraConnected, setJiraConnected] = useState<boolean>(true);
+  const [hasUnsyncedStories, setHasUnsyncedStories] = useState<boolean>(false);
+  const [checkingJira, setCheckingJira] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (currentProject?.id) {
+      setCheckingJira(true);
+      Promise.all([
+        projectConfigApi.getConfiguration(currentProject.id).catch(() => null),
+        iterationApi.listIterations(currentProject.id).catch(() => [])
+      ]).then(async ([config, iters]) => {
+        const isJiraConnected = !!(config?.jira_url && config?.jira_project_key);
+        setJiraConnected(isJiraConnected);
+
+        let hasStories = false;
+        if (iters && iters.length > 0) {
+          try {
+            const results = await Promise.all(
+              iters.map(iter => meetingApi.getMeetingsByIteration(iter.id).catch(() => null))
+            );
+            hasStories = results.some(res => (res?.summary?.total_stories || 0) > 0);
+          } catch (e) {
+            console.error("Failed to check iterations stories", e);
+          }
+        }
+        
+        console.log("[DEBUG] Jira Sync Check - Connected:", isJiraConnected, "Has Stories:", hasStories);
+        setHasUnsyncedStories(hasStories);
+      }).catch(err => {
+        console.error("Error loading Jira connection state:", err);
+      }).finally(() => {
+        setCheckingJira(false);
+      });
+    }
+  }, [currentProject]);
 
   useEffect(() => {
     if (isCreated) {
@@ -130,6 +171,30 @@ export const MeetingHubView: React.FC<MeetingHubViewProps> = ({
               </p>
             </div>
           </div>
+
+          {/* Jira Integration Alert Banner */}
+          {!checkingJira && !jiraConnected && hasUnsyncedStories && (
+            <div className="bg-gradient-to-r from-amber-50 to-amber-100/50 rounded-2xl border border-amber-200/80 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs animate-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                  <Shield size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-amber-950">Jira Integration Pending</h4>
+                  <p className="text-xs text-amber-800/85 mt-1 leading-relaxed">
+                    You have active sprint iterations in this project, but Jira backlog is not connected. Link your Jira Cloud instance to synchronize your team user stories.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`/projects/${currentProject?.id}`)}
+                className="shrink-0 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-5 py-2.5 shadow-sm transition-all hover:scale-[1.02] active:scale-95 whitespace-nowrap"
+              >
+                Review & Connect to Jira
+              </button>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <button

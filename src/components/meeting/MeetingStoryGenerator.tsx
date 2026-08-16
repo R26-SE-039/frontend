@@ -3,6 +3,8 @@ import { Sparkles, CheckCircle2, AlertCircle, Clipboard, ArrowLeft, Download, Fi
 import { motion, AnimatePresence } from 'framer-motion';
 import { meetingApi } from '../../api/meetingApi';
 import { GeneratedStory, ValidationResult } from '../../api/ragApi';
+import { useMeetingStore } from '../../store/useMeetingStore';
+import { JiraSyncCard } from './JiraSyncCard';
 
 interface MeetingStoryGeneratorProps {
   meetingId: string;
@@ -408,6 +410,14 @@ export const MeetingStoryGenerator: React.FC<MeetingStoryGeneratorProps> = ({ me
                 animate={{ opacity: 1 }}
                 className="flex flex-col gap-6"
               >
+                {useMeetingStore.getState().currentProject?.id && (
+                  <JiraSyncCard 
+                    projectId={useMeetingStore.getState().currentProject.id} 
+                    stories={stories} 
+                    validationMap={validationMap} 
+                  />
+                )}
+
                 {stories.map((story, idx) => {
                   const val = validationMap[story.story_id];
                   const status = val?.status || 'Needs Review';

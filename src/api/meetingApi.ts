@@ -239,5 +239,33 @@ export const meetingApi = {
     if (!response.ok) throw new Error('Failed to fetch meeting stories');
     return response.json();
   },
+
+  syncStoriesToJira: async (
+    projectId: string,
+    iterationName: string,
+    stories: Array<{
+      story_id: string;
+      title: string;
+      story: string;
+      acceptance_criteria: string[];
+      quality_score: number;
+      status: string;
+    }>
+  ) => {
+    const response = await authenticatedFetch(`${RAG_API_URL}/jira/sync-stories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId,
+        iterationName,
+        stories,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to sync stories to Jira');
+    }
+    return response.json();
+  },
 };
 
