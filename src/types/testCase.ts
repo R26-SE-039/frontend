@@ -20,6 +20,23 @@ export interface UserStoryResponse extends UserStoryPayload {
   project_id: string;
 }
 
+/** A user story as returned by the C1 story service's iteration endpoint. */
+export interface C1IterationStory {
+  id: string;
+  title: string;
+  story: string;
+  priority: string; // MoSCoW: "Must" | "Should" | "Could"
+  status: string;
+  meeting_id: string;
+  acceptance_criteria: string[];
+}
+
+export interface C1IterationStoriesResponse {
+  iteration: { id: string; name?: string; [key: string]: unknown };
+  stories: C1IterationStory[];
+  total_stories: number;
+}
+
 export interface GherkinResult {
   id: string;
   story_id: string;

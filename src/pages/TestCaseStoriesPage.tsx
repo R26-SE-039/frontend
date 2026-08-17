@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ClipboardList, Plus, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ClipboardList, Download, Plus, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { testCaseApi } from '../api/testCaseApi';
-import type { UserStoryResponse } from '../types/testCase';
+import { meetingApi } from '../api/meetingApi';
+import type { C1IterationStoriesResponse, C1IterationStory, UserStoryPayload, UserStoryResponse } from '../types/testCase';
 import TestCaseStatCard from '../components/testCase/TestCaseStatCard';
 import TestCasePill from '../components/testCase/TestCasePill';
 
@@ -28,6 +29,41 @@ const emptyDraft: StoryDraft = {
   acceptanceCriteria: '',
 };
 
+// C1 stories use MoSCoW priorities; C2 uses high/medium/low.
+const PRIORITY_FROM_C1: Record<string, string> = {
+  must: 'high',
+  should: 'medium',
+  could: 'low',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+};
+
+/** Split a "As a X, I want Y, so that Z" sentence into C2's actor/action/goal fields. */
+function parseStoryText(story: C1IterationStory): { actor: string; action: string; goal: string } {
+  const match = /as\s+(?:an?\s+)?(.+?),\s*i\s+(?:want|need|would like)\s+(?:to\s+)?(.+?),?\s+so\s+that\s+(.+?)\.?\s*$/i.exec(
+    (story.story || '').trim(),
+  );
+  if (match) return { actor: match[1].trim(), action: match[2].trim(), goal: match[3].trim() };
+  return {
+    actor: 'user',
+    action: story.title || story.story || 'complete the described flow',
+    goal: 'the described outcome is achieved',
+  };
+}
+
+function toC2Payload(story: C1IterationStory): UserStoryPayload {
+  return {
+    // Keep the C1 UUID so re-importing updates the story instead of duplicating it.
+    id: story.id,
+    ...parseStoryText(story),
+    priority: PRIORITY_FROM_C1[(story.priority || '').toLowerCase()] ?? 'medium',
+    status: 'pending',
+    source: 'C1',
+    acceptance_criteria: story.acceptance_criteria ?? [],
+  };
+}
+
 export default function TestCaseStoriesPage() {
   const navigate = useNavigate();
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -40,6 +76,13 @@ export default function TestCaseStoriesPage() {
   const [draft, setDraft] = useState<StoryDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [c1Stories, setC1Stories] = useState<C1IterationStory[]>([]);
+  const [iterationName, setIterationName] = useState<string | null>(null);
+  const [importSelected, setImportSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
 
   const loadStories = useCallback(async () => {
     setLoading(true);
@@ -136,6 +179,54 @@ export default function TestCaseStoriesPage() {
     }
   };
 
+  const openImport = async () => {
+    setImportOpen(true);
+    setImportLoading(true);
+    setImportError(null);
+    try {
+      const id = projectId ?? (await testCaseApi.ensureProject());
+      if (!projectId) setProjectId(id);
+      const data: C1IterationStoriesResponse = await meetingApi.getIterationStories(id);
+      const fetched = data.stories ?? [];
+      setC1Stories(fetched);
+      setIterationName((data.iteration?.name as string) ?? null);
+      // Preselect BA-approved stories; fall back to everything when none are approved yet.
+      const approved = fetched.filter((story) => (story.status || '').toLowerCase() === 'approved');
+      setImportSelected(new Set((approved.length ? approved : fetched).map((story) => story.id)));
+    } catch (err: any) {
+      setImportError(err.message || 'Failed to load stories from the User Story service');
+      setC1Stories([]);
+      setImportSelected(new Set());
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const toggleImportSelected = (storyId: string) => {
+    setImportSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(storyId)) next.delete(storyId);
+      else next.add(storyId);
+      return next;
+    });
+  };
+
+  const handleImport = async () => {
+    if (!projectId || importSelected.size === 0) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const payloads = c1Stories.filter((story) => importSelected.has(story.id)).map(toC2Payload);
+      await testCaseApi.saveStories(projectId, payloads);
+      setImportOpen(false);
+      await loadStories();
+    } catch (err: any) {
+      setImportError(err.message || 'Failed to import the selected stories');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!projectId || selectedIds.size === 0) return;
     setGenerating(true);
@@ -169,6 +260,13 @@ export default function TestCaseStoriesPage() {
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 transition hover:text-indigo-600"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={openImport}
+            className="inline-flex items-center gap-2 rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-xs font-bold text-purple-600 transition hover:bg-purple-100"
+          >
+            <Download size={14} /> Import from Meetings
           </button>
           <button
             type="button"
@@ -267,6 +365,133 @@ export default function TestCaseStoriesPage() {
               </button>
             </div>
           </motion.form>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {importOpen && (
+          <motion.div
+            key="import-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 14 }}
+              className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            >
+              <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Import from Agile Meetings</h3>
+                  <p className="mt-1 text-xs font-medium text-slate-400">
+                    Stories generated by the User Story service for{' '}
+                    {iterationName ? <span className="font-bold text-slate-600">{iterationName}</span> : 'the active iteration'} — via the
+                    API Gateway.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setImportOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-900"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-4">
+                {importError && (
+                  <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    <AlertTriangle size={18} className="shrink-0" />
+                    {importError}
+                  </div>
+                )}
+
+                {importLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-100 border-t-purple-600" />
+                  </div>
+                ) : c1Stories.length === 0 ? (
+                  !importError && (
+                    <div className="flex flex-col items-center gap-3 py-12 text-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
+                        <ClipboardList size={22} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-900">No stories in the active iteration</p>
+                      <p className="max-w-sm text-xs font-medium text-slate-400">
+                        Run a sprint meeting or upload a transcript in the Agile Meeting Hub first, then import the generated stories
+                        here.
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <ul className="space-y-3">
+                    {c1Stories.map((story) => {
+                      const mapped = toC2Payload(story);
+                      const checked = importSelected.has(story.id);
+                      return (
+                        <li key={story.id}>
+                          <label
+                            className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
+                              checked ? 'border-purple-200 bg-purple-50/50' : 'border-slate-200 hover:bg-slate-50/60'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleImportSelected(story.id)}
+                              className="mt-1 h-4 w-4 accent-purple-600"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black text-slate-900">{story.title}</p>
+                              <p className="mt-1 text-xs font-medium leading-5 text-slate-500">{story.story}</p>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <TestCasePill label={mapped.priority} type="priority" />
+                                {story.status && (
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    {story.status}
+                                  </span>
+                                )}
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  {(story.acceptance_criteria ?? []).length} criteria
+                                </span>
+                              </div>
+                            </div>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                <p className="text-xs font-bold text-slate-400">
+                  {importSelected.size} of {c1Stories.length} selected
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setImportOpen(false)}
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleImport}
+                    disabled={importSelected.size === 0 || importing}
+                    className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-purple-200 transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Download size={14} className={importing ? 'animate-pulse' : ''} />
+                    {importing ? 'Importing...' : `Import ${importSelected.size} ${importSelected.size === 1 ? 'story' : 'stories'}`}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
