@@ -2,6 +2,7 @@ export interface TestCaseProject {
   id: string;
   name: string;
   description?: string;
+  organization_id?: string | null;
   created_at?: string;
 }
 
@@ -14,6 +15,8 @@ export interface UserStoryPayload {
   status: string;
   source: string;
   acceptance_criteria: string[];
+  /** Auth-service iteration UUID — set when the story was imported from C1. */
+  iteration_id?: string | null;
 }
 
 export interface UserStoryResponse extends UserStoryPayload {

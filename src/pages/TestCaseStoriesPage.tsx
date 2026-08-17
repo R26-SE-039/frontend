@@ -52,7 +52,7 @@ function parseStoryText(story: C1IterationStory): { actor: string; action: strin
   };
 }
 
-function toC2Payload(story: C1IterationStory): UserStoryPayload {
+function toC2Payload(story: C1IterationStory, iterationId?: string | null): UserStoryPayload {
   return {
     // Keep the C1 UUID so re-importing updates the story instead of duplicating it.
     id: story.id,
@@ -61,6 +61,9 @@ function toC2Payload(story: C1IterationStory): UserStoryPayload {
     status: 'pending',
     source: 'C1',
     acceptance_criteria: story.acceptance_criteria ?? [],
+    // Auth-service iteration reference — lets C2 (and later RTM) trace the
+    // story back to the sprint it came from.
+    iteration_id: iterationId ?? null,
   };
 }
 
@@ -81,6 +84,7 @@ export default function TestCaseStoriesPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [c1Stories, setC1Stories] = useState<C1IterationStory[]>([]);
   const [iterationName, setIterationName] = useState<string | null>(null);
+  const [iterationId, setIterationId] = useState<string | null>(null);
   const [importSelected, setImportSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
 
@@ -190,6 +194,7 @@ export default function TestCaseStoriesPage() {
       const fetched = data.stories ?? [];
       setC1Stories(fetched);
       setIterationName((data.iteration?.name as string) ?? null);
+      setIterationId(data.iteration?.id ?? null);
       // Preselect BA-approved stories; fall back to everything when none are approved yet.
       const approved = fetched.filter((story) => (story.status || '').toLowerCase() === 'approved');
       setImportSelected(new Set((approved.length ? approved : fetched).map((story) => story.id)));
@@ -216,7 +221,9 @@ export default function TestCaseStoriesPage() {
     setImporting(true);
     setImportError(null);
     try {
-      const payloads = c1Stories.filter((story) => importSelected.has(story.id)).map(toC2Payload);
+      const payloads = c1Stories
+        .filter((story) => importSelected.has(story.id))
+        .map((story) => toC2Payload(story, iterationId));
       await testCaseApi.saveStories(projectId, payloads);
       setImportOpen(false);
       await loadStories();
