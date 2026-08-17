@@ -25,6 +25,7 @@ import TestScriptCodeReviewPage from './pages/TestScriptCodeReviewPage';
 import TestScriptSuiteEditorPage from './pages/TestScriptSuiteEditorPage';
 import TestScriptExecutionPage from './pages/TestScriptExecutionPage';
 import TestScriptGitHubSettingsPage from './pages/TestScriptGitHubSettingsPage';
+import SystemStatusPage from './pages/SystemStatusPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -218,6 +219,16 @@ function App() {
               <TestScriptRoute title="GitHub Connection">
                 <TestScriptGitHubSettingsPage />
               </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/status"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout activeView="status" title="Service Status">
+                  <SystemStatusPage />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
