@@ -98,6 +98,51 @@ export const testCaseLinks = [
   },
 ] as const;
 
+export const rtmLinks = [
+  {
+    label: 'Dashboard',
+    description: 'Live ML test-quality metrics, trend charts, and coverage overview.',
+    path: '/rtm/dashboard',
+    icon: <Layout size={18} />,
+  },
+  {
+    label: 'RTM Matrix',
+    description: 'Requirements Traceability Matrix — link requirements to acceptance criteria and tests.',
+    path: '/rtm',
+    icon: <Shield size={18} />,
+  },
+  {
+    label: 'Test Inventory',
+    description: 'All test cases across every requirement, with quality and coverage scores.',
+    path: '/rtm/inventory',
+    icon: <ClipboardList size={18} />,
+  },
+  {
+    label: 'Quality Prediction',
+    description: 'Score a new test case with the ML quality-prediction model.',
+    path: '/rtm/quality-prediction',
+    icon: <FlaskConical size={18} />,
+  },
+  {
+    label: 'Coverage Gaps',
+    description: 'Requirements with incomplete coverage, sorted by risk.',
+    path: '/rtm/gaps',
+    icon: <Search size={18} />,
+  },
+  {
+    label: 'Code Coverage',
+    description: 'Run GitHub statement & branch coverage analysis on a repository.',
+    path: '/rtm/coverage',
+    icon: <GitBranch size={18} />,
+  },
+  {
+    label: 'Portfolio',
+    description: 'Redundancy, criticality, and weakness analysis across the test portfolio.',
+    path: '/rtm/portfolio',
+    icon: <ClipboardCheck size={18} />,
+  },
+] as const;
+
 export const testScriptLinks = [
   {
     label: 'Mode & URL Setup',
@@ -139,6 +184,7 @@ type DashboardLayoutProps = {
   showSelfHealingCrumbs?: boolean;
   showTestCaseCrumbs?: boolean;
   showTestScriptCrumbs?: boolean;
+  showRtmCrumbs?: boolean;
 };
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
@@ -149,6 +195,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   showSelfHealingCrumbs = false,
   showTestCaseCrumbs = false,
   showTestScriptCrumbs = false,
+  showRtmCrumbs = false,
 }) => {
   const { user, logout, currentProject } = useMeetingStore();
   const navigate = useNavigate();
@@ -189,6 +236,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const activeTestCaseLabel = testCaseLinks.find((item) => item.path === activeTestCasePath)?.label ?? '';
   const activeTestScriptLabel = testScriptLinks.find((item) => item.path === activeTestScriptPath)?.label ?? '';
 
+  const activeRtmPath = useMemo(() => {
+    const exact = rtmLinks.find((item) => item.path === location.pathname);
+    if (exact) return exact.path;
+    if (location.pathname.startsWith('/rtm/requirements/')) return '/rtm';
+    return '';
+  }, [location.pathname]);
+
+  const activeRtmLabel = rtmLinks.find((item) => item.path === activeRtmPath)?.label ?? '';
+
   const selectModule = (view: DashboardViewType) => {
     setIsEditingProfile(false);
     if (onModuleSelect) {
@@ -208,6 +264,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
     if (view === 'test-script') {
       navigate('/test-script');
+      return;
+    }
+
+    if (view === 'rtm') {
+      navigate('/rtm');
       return;
     }
 
@@ -471,6 +532,41 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         type="button"
                         onClick={() => navigate(item.path)}
                         className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${activeTestScriptPath === item.path ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:text-emerald-600 border border-slate-200'}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {showRtmCrumbs && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                    <button type="button" onClick={() => navigate('/dashboard')} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-blue-600">
+                      <Home size={14} /> Main Dashboard
+                    </button>
+                    <span>/</span>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/rtm')}
+                      className="rounded-lg px-2 py-1 text-slate-600 hover:bg-white hover:text-amber-600"
+                    >
+                      Generate RTM
+                    </button>
+                    {activeRtmLabel && activeRtmLabel !== 'RTM Matrix' && (
+                      <>
+                        <span>/</span>
+                        <span className="rounded-lg px-2 py-1 text-amber-600">{activeRtmLabel}</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {rtmLinks.map((item) => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        onClick={() => navigate(item.path)}
+                        className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${activeRtmPath === item.path ? 'bg-amber-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:text-amber-600 border border-slate-200'}`}
                       >
                         {item.label}
                       </button>
