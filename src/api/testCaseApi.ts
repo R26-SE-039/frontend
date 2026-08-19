@@ -62,26 +62,34 @@ export const testCaseApi = {
   // ── Projects ──────────────────────────────────────────────────────────────
   listProjects: async (): Promise<TestCaseProject[]> => request<TestCaseProject[]>('/api/v1/projects'),
 
-  createProject: async (name: string, description?: string, id?: string): Promise<TestCaseProject> =>
+  createProject: async (
+    name: string,
+    description?: string,
+    id?: string,
+    organizationId?: string,
+  ): Promise<TestCaseProject> =>
     request<TestCaseProject>('/api/v1/projects', {
       method: 'POST',
-      body: JSON.stringify({ id, name, description }),
+      body: JSON.stringify({ id, name, description, organization_id: organizationId }),
     }),
 
   /**
    * Resolve the generation-backend project for the workspace's current project.
    * Both services use UUID project ids, and the backend's POST /projects is a
    * get-or-create when an id is supplied — so the auth-service project id IS
-   * the generation project id. Every page calls this before loading data.
+   * the generation project id. The auth-service organization id is forwarded
+   * as a reference so C2 rows stay aligned with the user_db hierarchy.
+   * Every page calls this before loading data.
    */
   ensureProject: async (): Promise<string> => {
-    const current = useMeetingStore.getState().currentProject;
+    const { currentProject: current, user } = useMeetingStore.getState();
     if (!current) throw new Error('Select a project before opening Test Case Gen.');
 
     const project = await testCaseApi.createProject(
       current.name,
       current.description || `NextGenQA workspace project ${current.id}`,
       current.id,
+      user?.organizationId,
     );
     return project.id;
   },

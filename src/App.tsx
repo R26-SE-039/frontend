@@ -33,6 +33,7 @@ import RtmGapsPage from './pages/RtmGapsPage';
 import RtmCoveragePage from './pages/RtmCoveragePage';
 import RtmPortfolioPage from './pages/RtmPortfolioPage';
 import RtmRequirementDetailPage from './pages/RtmRequirementDetailPage';
+import SystemStatusPage from './pages/SystemStatusPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -297,6 +298,16 @@ function App() {
               <RtmRoute title="Requirement Detail">
                 <RtmRequirementDetailPage />
               </RtmRoute>
+            }
+          />
+          <Route
+            path="/status"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout activeView="status" title="Service Status">
+                  <SystemStatusPage />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />

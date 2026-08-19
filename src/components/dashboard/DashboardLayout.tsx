@@ -22,12 +22,13 @@ import {
   Rocket,
   Bot,
   GitBranch,
+  Activity,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMeetingStore } from '../../store/useMeetingStore';
 import { ProfileForm } from '../auth/ProfileForm';
 
-export type DashboardViewType = 'menu' | 'meeting' | 'file-rag' | 'test-case' | 'test-script' | 'self-healing' | 'rtm';
+export type DashboardViewType = 'menu' | 'meeting' | 'file-rag' | 'test-case' | 'test-script' | 'self-healing' | 'rtm' | 'status';
 
 export const dashboardNavItems = [
   { id: 'meeting', label: 'Agile Meeting Hub', icon: <Users size={18} />, color: 'blue' },
@@ -363,6 +364,25 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </button>
             ))}
           </div>
+
+          {!isSidebarCollapsed && <p className="px-4 pt-6 pb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Platform</p>}
+          <button
+            type="button"
+            onClick={() => {
+              setIsEditingProfile(false);
+              navigate('/status');
+            }}
+            className={`w-full flex items-center gap-3 rounded-xl text-sm font-bold transition-all group ${isSidebarCollapsed ? 'p-3 justify-center mt-4' : 'px-4 py-3'} ${
+              activeView === 'status'
+                ? 'bg-blue-50 text-blue-600 border border-blue-100'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg transition-colors shrink-0 ${activeView === 'status' ? 'bg-blue-100' : 'bg-slate-100 group-hover:bg-white'}`}>
+              <Activity size={18} />
+            </div>
+            {!isSidebarCollapsed && 'Service Status'}
+          </button>
         </div>
 
         <div className={`border-t border-slate-100 bg-slate-50/50 transition-all ${isSidebarCollapsed ? 'p-4' : 'p-6'}`}>
