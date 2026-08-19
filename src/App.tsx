@@ -25,6 +25,15 @@ import TestScriptCodeReviewPage from './pages/TestScriptCodeReviewPage';
 import TestScriptSuiteEditorPage from './pages/TestScriptSuiteEditorPage';
 import TestScriptExecutionPage from './pages/TestScriptExecutionPage';
 import TestScriptGitHubSettingsPage from './pages/TestScriptGitHubSettingsPage';
+import RtmMatrixPage from './pages/RtmMatrixPage';
+import RtmDashboardPage from './pages/RtmDashboardPage';
+import RtmInventoryPage from './pages/RtmInventoryPage';
+import RtmQualityPredictionPage from './pages/RtmQualityPredictionPage';
+import RtmGapsPage from './pages/RtmGapsPage';
+import RtmCoveragePage from './pages/RtmCoveragePage';
+import RtmPortfolioPage from './pages/RtmPortfolioPage';
+import RtmRequirementDetailPage from './pages/RtmRequirementDetailPage';
+import SystemStatusPage from './pages/SystemStatusPage';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -49,6 +58,13 @@ const TestCaseRoute = ({ title, children }: { title: string; children: React.Rea
 const TestScriptRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <ProtectedRoute>
     <DashboardLayout activeView="test-script" title={title} showTestScriptCrumbs>
+      {children}
+    </DashboardLayout>
+  </ProtectedRoute>
+);
+const RtmRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <DashboardLayout activeView="rtm" title={title} showRtmCrumbs>
       {children}
     </DashboardLayout>
   </ProtectedRoute>
@@ -218,6 +234,80 @@ function App() {
               <TestScriptRoute title="GitHub Connection">
                 <TestScriptGitHubSettingsPage />
               </TestScriptRoute>
+            }
+          />
+          <Route
+            path="/rtm"
+            element={
+              <RtmRoute title="RTM Matrix">
+                <RtmMatrixPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/dashboard"
+            element={
+              <RtmRoute title="Dashboard">
+                <RtmDashboardPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/inventory"
+            element={
+              <RtmRoute title="Test Inventory">
+                <RtmInventoryPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/quality-prediction"
+            element={
+              <RtmRoute title="Quality Prediction">
+                <RtmQualityPredictionPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/gaps"
+            element={
+              <RtmRoute title="Coverage Gaps">
+                <RtmGapsPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/coverage"
+            element={
+              <RtmRoute title="Code Coverage">
+                <RtmCoveragePage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/portfolio"
+            element={
+              <RtmRoute title="Portfolio">
+                <RtmPortfolioPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/requirements/:id"
+            element={
+              <RtmRoute title="Requirement Detail">
+                <RtmRequirementDetailPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/status"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout activeView="status" title="Service Status">
+                  <SystemStatusPage />
+                </DashboardLayout>
+              </ProtectedRoute>
             }
           />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
