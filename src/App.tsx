@@ -1,68 +1,99 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from './pages/LoginPage';
-import MeetingPage from './pages/MeetingPage';
-import { useMeetingStore } from './store/useMeetingStore';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import MeetingPage from "./pages/MeetingPage";
+import { useMeetingStore } from "./store/useMeetingStore";
 
-import { DashboardPage } from './pages/DashboardPage';
-import { ProjectDashboard } from './pages/ProjectDashboard';
-import { AcceptInvitePage } from './pages/AcceptInvitePage';
-import { OrganizationSettingsPage } from './pages/OrganizationSettingsPage';
-import { ProjectDetailPage } from './pages/ProjectDetailPage';
-import SelfHealingDashboardPage from './pages/SelfHealingDashboardPage';
-import FailureAnalysisSubmitPage from './pages/FailureAnalysisSubmitPage';
-import FailureRecordsPage from './pages/FailureRecordsPage';
-import FailureDetailsPage from './pages/FailureDetailsPage';
-import HealingActionsPage from './pages/HealingActionsPage';
-import RepairHistoryPage from './pages/RepairHistoryPage';
-import SelfHealingAnalyticsPage from './pages/SelfHealingAnalyticsPage';
-import TestCaseStoriesPage from './pages/TestCaseStoriesPage';
-import TestCaseGherkinPage from './pages/TestCaseGherkinPage';
-import TestCaseAgentExplorerPage from './pages/TestCaseAgentExplorerPage';
-import TestScriptSetupPage from './pages/TestScriptSetupPage';
-import TestScriptDomInspectorPage from './pages/TestScriptDomInspectorPage';
-import TestScriptCodeReviewPage from './pages/TestScriptCodeReviewPage';
-import TestScriptSuiteEditorPage from './pages/TestScriptSuiteEditorPage';
-import TestScriptExecutionPage from './pages/TestScriptExecutionPage';
-import TestScriptGitHubSettingsPage from './pages/TestScriptGitHubSettingsPage';
-import RtmMatrixPage from './pages/RtmMatrixPage';
-import RtmDashboardPage from './pages/RtmDashboardPage';
-import RtmInventoryPage from './pages/RtmInventoryPage';
-import RtmQualityPredictionPage from './pages/RtmQualityPredictionPage';
-import RtmGapsPage from './pages/RtmGapsPage';
-import RtmCoveragePage from './pages/RtmCoveragePage';
-import RtmPortfolioPage from './pages/RtmPortfolioPage';
-import RtmRequirementDetailPage from './pages/RtmRequirementDetailPage';
-import SystemStatusPage from './pages/SystemStatusPage';
-import { DashboardLayout } from './components/dashboard/DashboardLayout';
+import { DashboardPage } from "./pages/DashboardPage";
+import { ProjectDashboard } from "./pages/ProjectDashboard";
+import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { OrganizationSettingsPage } from "./pages/OrganizationSettingsPage";
+import { ProjectDetailPage } from "./pages/ProjectDetailPage";
+import SelfHealingDashboardPage from "./pages/SelfHealingDashboardPage";
+import FailureAnalysisSubmitPage from "./pages/FailureAnalysisSubmitPage";
+import FailureRecordsPage from "./pages/FailureRecordsPage";
+import FailureDetailsPage from "./pages/FailureDetailsPage";
+import HealingActionsPage from "./pages/HealingActionsPage";
+import RepairHistoryPage from "./pages/RepairHistoryPage";
+import SelfHealingAnalyticsPage from "./pages/SelfHealingAnalyticsPage";
+import TestCaseStoriesPage from "./pages/TestCaseStoriesPage";
+import TestCaseGherkinPage from "./pages/TestCaseGherkinPage";
+import TestCaseAgentExplorerPage from "./pages/TestCaseAgentExplorerPage";
+import TestScriptSetupPage from "./pages/TestScriptSetupPage";
+import TestScriptDomInspectorPage from "./pages/TestScriptDomInspectorPage";
+import TestScriptCodeReviewPage from "./pages/TestScriptCodeReviewPage";
+import TestScriptSuiteEditorPage from "./pages/TestScriptSuiteEditorPage";
+import TestScriptExecutionPage from "./pages/TestScriptExecutionPage";
+import RtmMatrixPage from "./pages/RtmMatrixPage";
+import RtmDashboardPage from "./pages/RtmDashboardPage";
+import RtmInventoryPage from "./pages/RtmInventoryPage";
+import RtmQualityPredictionPage from "./pages/RtmQualityPredictionPage";
+import RtmGapsPage from "./pages/RtmGapsPage";
+import RtmCoveragePage from "./pages/RtmCoveragePage";
+import RtmPortfolioPage from "./pages/RtmPortfolioPage";
+import RtmRequirementDetailPage from "./pages/RtmRequirementDetailPage";
+import SystemStatusPage from "./pages/SystemStatusPage";
+import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useMeetingStore();
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
-const SelfHealingRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const SelfHealingRoute = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
   <ProtectedRoute>
-    <DashboardLayout activeView="self-healing" title={title} showSelfHealingCrumbs>
+    <DashboardLayout
+      activeView="self-healing"
+      title={title}
+      showSelfHealingCrumbs
+    >
       {children}
     </DashboardLayout>
   </ProtectedRoute>
 );
-const TestCaseRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const TestCaseRoute = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
   <ProtectedRoute>
     <DashboardLayout activeView="test-case" title={title} showTestCaseCrumbs>
       {children}
     </DashboardLayout>
   </ProtectedRoute>
 );
-const TestScriptRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const TestScriptRoute = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
   <ProtectedRoute>
-    <DashboardLayout activeView="test-script" title={title} showTestScriptCrumbs>
+    <DashboardLayout
+      activeView="test-script"
+      title={title}
+      showTestScriptCrumbs
+    >
       {children}
     </DashboardLayout>
   </ProtectedRoute>
 );
-const RtmRoute = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const RtmRoute = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
   <ProtectedRoute>
     <DashboardLayout activeView="rtm" title={title} showRtmCrumbs>
       {children}
@@ -229,14 +260,6 @@ function App() {
             }
           />
           <Route
-            path="/test-script/settings/github"
-            element={
-              <TestScriptRoute title="GitHub Connection">
-                <TestScriptGitHubSettingsPage />
-              </TestScriptRoute>
-            }
-          />
-          <Route
             path="/rtm"
             element={
               <RtmRoute title="RTM Matrix">
@@ -328,5 +351,3 @@ function App() {
 }
 
 export default App;
-
-
