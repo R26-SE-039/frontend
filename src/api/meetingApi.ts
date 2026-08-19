@@ -234,6 +234,15 @@ export const meetingApi = {
     return response.json();
   },
 
+  getIterationStories: async (projectId: string) => {
+    const response = await authenticatedFetch(`${RAG_API_URL}/speech/project/${projectId}/iteration/stories`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(errorData.detail || 'Failed to fetch iteration stories');
+    }
+    return response.json();
+  },
+
   getMeetingStories: async (meetingId: string) => {
     const response = await authenticatedFetch(`${RAG_API_URL}/speech/meeting/${meetingId}/stories`);
     if (!response.ok) throw new Error('Failed to fetch meeting stories');
