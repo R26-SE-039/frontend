@@ -100,6 +100,7 @@ export default function TestScriptExecutionPage() {
     github: { ...idleRunner },
   });
   const [activeDetail, setActiveDetail] = useState<RunDetail | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [previewTick, setPreviewTick] = useState(0);
@@ -167,13 +168,17 @@ export default function TestScriptExecutionPage() {
   const finishRun = useCallback(
     async (runId: string) => {
       try {
-        setActiveDetail(await testCaseApi.getRun(runId));
+        // Do not override a user-selected history run with background updates.
+        if (!selectedRunId || selectedRunId === runId) {
+          setActiveDetail(await testCaseApi.getRun(runId));
+          setSelectedRunId(runId);
+        }
       } catch {
         // detail may not be persisted yet — history refresh still shows the row
       }
       if (projectId) refreshRuns(projectId).catch(() => undefined);
     },
-    [projectId, refreshRuns],
+    [projectId, refreshRuns, selectedRunId],
   );
 
   const attachStream = useCallback(
@@ -280,6 +285,7 @@ export default function TestScriptExecutionPage() {
   const viewRun = async (run: RunSummary) => {
     setError(null);
     try {
+      setSelectedRunId(run.id);
       setActiveDetail(await testCaseApi.getRun(run.id));
     } catch (err: any) {
       setError(err.message || "Failed to load run details");
@@ -696,7 +702,10 @@ export default function TestScriptExecutionPage() {
                 {runs.map((run) => (
                   <tr
                     key={run.id}
-                    className="border-b border-slate-50 hover:bg-slate-50/60"
+                    onClick={() => viewRun(run)}
+                    className={`border-b border-slate-50 hover:bg-slate-50/60 cursor-pointer ${
+                      selectedRunId === run.id ? "bg-indigo-50/40" : ""
+                    }`}
                   >
                     <td className="px-6 py-3 text-xs font-semibold text-slate-600">
                       {run.started_at
@@ -724,7 +733,10 @@ export default function TestScriptExecutionPage() {
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => viewRun(run)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            viewRun(run);
+                          }}
                           className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-slate-500 transition hover:text-indigo-600"
                         >
                           View
@@ -732,7 +744,10 @@ export default function TestScriptExecutionPage() {
                         {run.mode === "github" && (
                           <button
                             type="button"
-                            onClick={() => handleRerun(run)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRerun(run);
+                            }}
                             className="rounded-lg p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-600"
                             title="Re-run on GitHub Actions"
                           >
@@ -742,6 +757,7 @@ export default function TestScriptExecutionPage() {
                         {run.github_run_url && (
                           <a
                             href={run.github_run_url}
+                            onClick={(e) => e.stopPropagation()}
                             target="_blank"
                             rel="noreferrer"
                             className="rounded-lg p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-600"
