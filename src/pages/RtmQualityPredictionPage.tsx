@@ -15,6 +15,7 @@ import type {
   C2QualityPredictionOut,
   C2StatusOut,
 } from '../types/rtm';
+import { extractGwtSteps } from '../utils/gherkin';
 
 const IMPORTANCE_COLORS = ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'];
 const QUALITY_LABEL_COLORS: Record<string, string> = { High: '#22c55e', Medium: '#f59e0b', Low: '#ef4444' };
@@ -150,6 +151,16 @@ function ProbabilityBranches({ probabilities }: { probabilities: Record<string, 
   );
 }
 
+/** Renders a test case's Given/When/Then steps as a single-line dropdown
+ * label — the same GWT-only content shown in the Test Inventory page's
+ * "Test Case" column, just joined for a native <select> option. */
+function gwtDropdownLabel(description: string): string {
+  const steps = extractGwtSteps(description);
+  if (!steps) return '';
+  const joined = steps.split('\n').join(' | ');
+  return joined.length > 110 ? `${joined.slice(0, 110)}…` : joined;
+}
+
 function PredictSelector({
   predictions,
   c2ModelInfo,
@@ -184,11 +195,14 @@ function PredictSelector({
         onChange={(e) => setSelectedId(e.target.value)}
       >
         <option value="">Choose a test case…</option>
-        {predictions.map((p) => (
-          <option key={p.test_case_id} value={p.test_case_id}>
-            {p.title}
-          </option>
-        ))}
+        {predictions.map((p) => {
+          const label = gwtDropdownLabel(p.description) || `Test case #${p.test_case_id.slice(0, 8)}`;
+          return (
+            <option key={p.test_case_id} value={p.test_case_id}>
+              {label}
+            </option>
+          );
+        })}
       </select>
 
       {selected && (
@@ -209,6 +223,17 @@ function PredictSelector({
               <p className="text-xs text-slate-400">Quality Score</p>
             </div>
           </div>
+
+          {selected.description && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Test Description (Given / When / Then)
+              </p>
+              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-4 font-mono text-xs text-slate-700">
+                {selected.description}
+              </pre>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-xl bg-slate-50 px-3.5 py-3 text-center">

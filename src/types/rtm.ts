@@ -310,6 +310,7 @@ export interface C2QualityPredictionOut {
   title: string;
   story_id: string;
   status: string;
+  description: string;
   features: C2QualityFeaturesOut;
   quality_score: number;
   formula_label: string;
