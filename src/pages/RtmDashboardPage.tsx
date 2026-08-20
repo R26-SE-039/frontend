@@ -1,8 +1,10 @@
-import { Bug, CheckCircle2, RadioTower, Shield, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Bug, CheckCircle2, Info, RadioTower, Shield, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -50,6 +52,34 @@ function StatCard({ label, value, icon: Icon, gradient, progress, footer }: Stat
 
 const TOGGLE_OPTIONS = ['Both', 'Quality', 'Coverage'] as const;
 const DONUT_COLORS = ['#6366f1', '#e2e8f0'];
+
+const DISTRIBUTION_COLORS: Record<string, string> = {
+  Excellent: '#22c55e',
+  Good: '#84cc16',
+  Fair: '#f5c518',
+  Poor: '#ef4444',
+};
+
+const ACTIVITY_ICON: Record<
+  string,
+  { Icon: React.ComponentType<{ size?: number; className?: string }>; bg: string; fg: string }
+> = {
+  test_created: { Icon: CheckCircle2, bg: 'bg-green-100', fg: 'text-green-600' },
+  quality_analyzed: { Icon: Info, bg: 'bg-blue-100', fg: 'text-blue-600' },
+  gap_detected: { Icon: AlertTriangle, bg: 'bg-amber-100', fg: 'text-amber-600' },
+  model_loaded: { Icon: CheckCircle2, bg: 'bg-green-100', fg: 'text-green-600' },
+};
+
+function timeAgo(isoString: string) {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
 
 export default function RtmDashboardPage() {
   const [summary, setSummary] = useState<DashboardSummaryOut | null>(null);
@@ -240,6 +270,67 @@ export default function RtmDashboardPage() {
             <span className="flex items-center gap-1.5 text-slate-600">
               <span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Not Covered ({notCovered})
             </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-3 gap-5">
+        <div className="col-span-2 rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-[#1e1b4b]">Quality Distribution</h2>
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={summary.quality_distribution}
+                layout="vertical"
+                margin={{ left: 10, right: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                <XAxis type="number" tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fontSize: 13, fill: '#334155' }}
+                  width={70}
+                />
+                <Tooltip cursor={{ fill: '#f8fafc' }} />
+                <Bar dataKey="tests" name="tests" radius={[0, 6, 6, 0]} barSize={28}>
+                  {summary.quality_distribution.map((entry) => (
+                    <Cell key={entry.label} fill={DISTRIBUTION_COLORS[entry.label]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 text-sm text-slate-600">
+            <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" /> tests
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-[#1e1b4b]">Recent Activities</h2>
+          <div className="mt-3 divide-y divide-slate-100">
+            {summary.recent_activities.length === 0 ? (
+              <p className="py-4 text-sm text-slate-400">No activity yet.</p>
+            ) : (
+              summary.recent_activities.map((activity, i) => {
+                const iconInfo = ACTIVITY_ICON[activity.activity_type] || ACTIVITY_ICON.model_loaded;
+                const { Icon, bg, fg } = iconInfo;
+                return (
+                  <div key={i} className="flex items-start justify-between gap-3 py-3.5">
+                    <div className="flex items-start gap-3">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bg} ${fg}`}>
+                        <Icon size={16} />
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1e1b4b]">{activity.title}</p>
+                        <p className="text-xs text-slate-400">{activity.detail}</p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-xs text-slate-400">{timeAgo(activity.created_at)}</span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
