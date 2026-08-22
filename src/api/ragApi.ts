@@ -1,4 +1,5 @@
 import { RAG_API_URL } from './config';
+import { authenticatedFetch } from './authenticatedFetch';
 
 export interface InvestValidation {
   Independent?: boolean;
@@ -45,7 +46,6 @@ export interface ValidationResult {
   issues?: StoryIssue[];
 }
 
-
 export interface PipelineRunResponse {
   transcript_id?: string;
   meeting_id?: string;
@@ -57,12 +57,30 @@ export interface PipelineRunResponse {
   validation_results?: ValidationResult[];
 }
 
-
 export interface PipelineRunRequest {
   transcript: any;
   query?: string;
   top_k?: number;
 }
+
+// ── Story Update & Re-Validation ─────────────────────────────────────────────
+
+export interface UpdateStoryPayload {
+  meeting_id: string;
+  title: string;
+  story: string;
+  acceptance_criteria: string[];
+  priority: string;
+}
+
+export interface UpdateStoryResponse {
+  status: string;
+  meeting_id: string;
+  story: GeneratedStory;
+  validation_result: ValidationResult;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const ragApi = {
   uploadTranscript: async (file: File, query: string): Promise<PipelineRunResponse> => {
@@ -70,7 +88,7 @@ export const ragApi = {
     formData.append('file', file);
     formData.append('query', query);
 
-    const response = await fetch(`${RAG_API_URL}/pipeline/upload`, {
+    const response = await authenticatedFetch(`${RAG_API_URL}/pipeline/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -83,7 +101,7 @@ export const ragApi = {
   },
 
   runPipeline: async (request: any): Promise<PipelineRunResponse> => {
-    const response = await fetch(`${RAG_API_URL}/pipeline/run`, {
+    const response = await authenticatedFetch(`${RAG_API_URL}/pipeline/run`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,6 +114,32 @@ export const ragApi = {
     }
 
     return response.json();
-  }
+  },
+
+  /**
+   * Edit a user story and trigger mandatory backend 5-layer re-validation.
+   * Quality scores and status are 100% system-calculated — not user-overridable.
+   */
+  updateStory: async (
+    storyId: string,
+    payload: UpdateStoryPayload,
+  ): Promise<UpdateStoryResponse> => {
+    const response = await authenticatedFetch(
+      `${RAG_API_URL}/pipeline/user-stories/${storyId}/update`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    if (!response.ok) {
+      const msg = await response.text().catch(() => 'Story update failed');
+      throw new Error(msg);
+    }
+
+    return response.json();
+  },
 };
+
 
