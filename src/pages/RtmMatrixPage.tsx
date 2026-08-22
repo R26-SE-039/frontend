@@ -5,6 +5,7 @@ import {
   getComponent2Projects,
   getComponent2Status,
   getComponent2TraceabilityTestCases,
+  getGeneratedGapTestCases,
   getProjectSettings,
   updateProjectSettings,
 } from '../api/rtmApi';
@@ -101,6 +102,7 @@ export default function RtmMatrixPage() {
   const [c2Status, setC2Status] = useState<C2StatusOut | null>(null);
   const [c2Projects, setC2Projects] = useState<C2ProjectOut[]>([]);
   const [c2TestCases, setC2TestCases] = useState<C2GherkinTestCaseOut[]>([]);
+  const [generatedTestCases, setGeneratedTestCases] = useState<C2GherkinTestCaseOut[]>([]);
 
   const [c1Requirements, setC1Requirements] = useState<C1RequirementWithStoryOut[]>([]);
   const [c1Loading, setC1Loading] = useState(false);
@@ -138,6 +140,21 @@ export default function RtmMatrixPage() {
     getComponent2Status()
       .then(setC2Status)
       .catch(() => setC2Status({ connected: false, base_url: '' }));
+    getGeneratedGapTestCases()
+      .then((rows) =>
+        setGeneratedTestCases(
+          rows
+            .filter((r) => r.test_case.added_to_rtm)
+            .map((r) => ({
+              story_id: r.prediction.story_id,
+              id: r.prediction.test_case_id,
+              title: r.prediction.title,
+              description: r.prediction.description,
+              status: r.prediction.status,
+            }))
+        )
+      )
+      .catch(() => setGeneratedTestCases([]));
   }, []);
 
   useEffect(() => {
@@ -187,13 +204,16 @@ export default function RtmMatrixPage() {
   // Join key: Component 2 stamps each imported story's id from Component 1's
   // user_story_id (source: "C1"), so a C1 requirement item's user_story_id
   // matches a C2 test case's story_id directly — no fuzzy matching needed here.
+  // Generated-and-added-to-RTM test cases (from the Coverage Gaps page) are
+  // merged in the same way, giving them a real traceability row here too.
+  const allTestCases = [...c2TestCases, ...generatedTestCases];
   const testCasesByStoryId = new Map<string, C2GherkinTestCaseOut[]>();
-  for (const tc of c2TestCases) {
+  for (const tc of allTestCases) {
     if (!testCasesByStoryId.has(tc.story_id)) testCasesByStoryId.set(tc.story_id, []);
     testCasesByStoryId.get(tc.story_id)!.push(tc);
   }
   const matchedStoryIds = new Set(c1Requirements.map((item) => item.user_story_id));
-  const unlinkedC2TestCases = c2TestCases.filter((tc) => !matchedStoryIds.has(tc.story_id));
+  const unlinkedC2TestCases = allTestCases.filter((tc) => !matchedStoryIds.has(tc.story_id));
 
   const c1Rows: C1Row[] = c1Requirements.flatMap((item): C1Row[] => {
     const testCases = testCasesByStoryId.get(item.user_story_id) || [];
@@ -202,10 +222,10 @@ export default function RtmMatrixPage() {
   });
 
   const uniqueRequirementCount = new Set(c1Requirements.map((r) => r.requirement_id)).size;
-  const totalTestCases = c2TestCases.length;
-  const passedCount = c2TestCases.filter((tc) => tc.status === 'approved').length;
+  const totalTestCases = allTestCases.length;
+  const passedCount = allTestCases.filter((tc) => tc.status === 'approved').length;
   const passRate = totalTestCases ? (passedCount / totalTestCases) * 100 : 0;
-  const defects = c2TestCases.filter((tc) => tc.status === 'rejected').length;
+  const defects = allTestCases.filter((tc) => tc.status === 'rejected').length;
 
   const handleDownloadPdf = async () => {
     const { default: jsPDF } = await import('jspdf');
@@ -479,7 +499,7 @@ export default function RtmMatrixPage() {
                 </td>
               </tr>
             ))}
-            {c1Requirements.length === 0 && c2TestCases.length === 0 && (
+            {c1Requirements.length === 0 && allTestCases.length === 0 && (
               <tr>
                 <td colSpan={12} className="px-4 py-8 text-center text-slate-400">
                   {!iterationId

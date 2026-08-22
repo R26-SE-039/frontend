@@ -30,6 +30,12 @@ import type {
   C2QualityPredictionOut,
   C2ImproveRequest,
   C2ImproveResponse,
+  C2CoverageGapOut,
+  GenerateGapTestCaseRequest,
+  GeneratedGapTestCasePredictionOut,
+  AddGapTestCaseRequest,
+  GenerateAllGapTestCasesRequest,
+  GenerateAllGapTestCasesResponse,
 } from '../types/rtm';
 
 const api = axios.create({
@@ -146,3 +152,18 @@ export const getC2QualityDatasetSamples = (n = 15) =>
 
 export const improveC2TestCase = (payload: C2ImproveRequest) =>
   api.post<C2ImproveResponse>('/api/ml/c2-quality/improve', payload).then((r) => r.data);
+
+// ── Risk-Based Coverage Gap Prioritization & Resolution ──────────────────
+
+export const getC2CoverageGaps = (projectId: string, iterationId: string) =>
+  api
+    .get<C2CoverageGapOut[]>('/api/rtm/c2-gaps', { params: { project_id: projectId, iteration_id: iterationId } })
+    .then((r) => r.data);
+export const generateGapTestCase = (payload: GenerateGapTestCaseRequest) =>
+  api.post<GeneratedGapTestCasePredictionOut>('/api/rtm/c2-gaps/generate-test-case', payload).then((r) => r.data);
+export const generateAllGapTestCases = (payload: GenerateAllGapTestCasesRequest) =>
+  api.post<GenerateAllGapTestCasesResponse>('/api/rtm/c2-gaps/generate-all', payload).then((r) => r.data);
+export const addGeneratedGapTestCase = (id: number, payload: AddGapTestCaseRequest) =>
+  api.post<GeneratedGapTestCasePredictionOut>(`/api/rtm/c2-gaps/${id}/add`, payload).then((r) => r.data);
+export const getGeneratedGapTestCases = () =>
+  api.get<GeneratedGapTestCasePredictionOut[]>('/api/rtm/c2-gaps/generated').then((r) => r.data);

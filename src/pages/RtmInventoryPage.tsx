@@ -5,6 +5,7 @@ import {
   getC2QualityModelInfo,
   getC2QualityPredictions,
   getComponent2Status,
+  getGeneratedGapTestCases,
   getProjectSettings,
 } from '../api/rtmApi';
 import type { C2QualityModelInfoOut, C2QualityPredictionOut, C2StatusOut } from '../types/rtm';
@@ -103,6 +104,7 @@ export default function RtmInventoryPage() {
 
   const [predictions, setPredictions] = useState<C2QualityPredictionOut[]>([]);
   const [datasetSamples, setDatasetSamples] = useState<C2QualityPredictionOut[]>([]);
+  const [generatedRows, setGeneratedRows] = useState<C2QualityPredictionOut[]>([]);
   const [modelInfo, setModelInfo] = useState<C2QualityModelInfoOut | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +115,9 @@ export default function RtmInventoryPage() {
     getC2QualityDatasetSamples(15)
       .then(setDatasetSamples)
       .catch(() => setDatasetSamples([]));
+    getGeneratedGapTestCases()
+      .then((rows) => setGeneratedRows(rows.filter((r) => r.test_case.added_to_inventory).map((r) => r.prediction)))
+      .catch(() => setGeneratedRows([]));
     getProjectSettings()
       .then((s) => {
         setC2ProjectId(s.component2_project_id || '');
@@ -143,7 +148,7 @@ export default function RtmInventoryPage() {
       .finally(() => setLoading(false));
   }, [c2Status?.connected, c2ProjectId, c2IterationId]);
 
-  const rows = [...predictions, ...datasetSamples];
+  const rows = [...generatedRows, ...predictions, ...datasetSamples];
 
   // Top 3 factors by the model's global learned importance, so every row
   // highlights the same (most influential) features rather than an
