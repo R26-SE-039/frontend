@@ -28,6 +28,8 @@ import type {
   C2QualityModelInfoOut,
   C2QualityDatasetInfoOut,
   C2QualityPredictionOut,
+  C2ImproveRequest,
+  C2ImproveResponse,
 } from '../types/rtm';
 
 const api = axios.create({
@@ -139,3 +141,8 @@ export const getC2QualityPredictions = (projectId: string, iterationId?: string)
     .then((r) => r.data);
 export const getC2QualityDatasetSamples = (n = 15) =>
   api.get<C2QualityPredictionOut[]>('/api/ml/c2-quality/dataset-samples', { params: { n } }).then((r) => r.data);
+
+// ── Intelligent Test Improvement & Recommendations ──────────────────────
+
+export const improveC2TestCase = (payload: C2ImproveRequest) =>
+  api.post<C2ImproveResponse>('/api/ml/c2-quality/improve', payload).then((r) => r.data);

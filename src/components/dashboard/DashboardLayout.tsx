@@ -171,6 +171,13 @@ export const rtmLinks = [
     icon: <FlaskConical size={18} />,
   },
   {
+    label: "Test Improvement",
+    description:
+      "Analyze a test case's quality gaps and generate an improved Given/When/Then version.",
+    path: "/rtm/test-improvement",
+    icon: <Sparkles size={18} />,
+  },
+  {
     label: "Coverage Gaps",
     description: "Requirements with incomplete coverage, sorted by risk.",
     path: "/rtm/gaps",

@@ -475,3 +475,36 @@ export interface C2TestCaseOut {
   executed_at: string | null;
   fail_rate: number;
 }
+
+// ── Intelligent Test Improvement & Recommendations ─────────────────────
+
+export interface QualityGapOut {
+  area: string;
+  label: string;
+  status: string;
+  severity: string;
+  recommendation: string;
+}
+
+export interface C2ImproveRequest {
+  title: string;
+  description: string;
+  features: C2QualityFeaturesOut;
+  quality_score: number;
+  predicted_label: string;
+  probabilities: Record<string, number>;
+  requirement_text: string;
+  user_story_title: string;
+  acceptance_criteria: string[];
+}
+
+export interface C2ImproveResponse {
+  gaps: QualityGapOut[];
+  improved_description: string;
+  improved_features: C2QualityFeaturesOut;
+  improved_quality_score: number;
+  improved_formula_label: string;
+  improved_predicted_label: string;
+  improved_probabilities: Record<string, number>;
+  improved_method: string;
+}
