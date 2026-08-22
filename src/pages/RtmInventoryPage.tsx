@@ -5,9 +5,11 @@ import {
   getC2QualityModelInfo,
   getC2QualityPredictions,
   getComponent2Status,
+  getGeneratedGapTestCases,
   getProjectSettings,
 } from '../api/rtmApi';
 import type { C2QualityModelInfoOut, C2QualityPredictionOut, C2StatusOut } from '../types/rtm';
+import { extractGwtSteps } from '../utils/gherkin';
 
 const QUALITY_LABEL_BADGE: Record<string, string> = {
   High: 'bg-green-100 text-green-700',
@@ -102,6 +104,7 @@ export default function RtmInventoryPage() {
 
   const [predictions, setPredictions] = useState<C2QualityPredictionOut[]>([]);
   const [datasetSamples, setDatasetSamples] = useState<C2QualityPredictionOut[]>([]);
+  const [generatedRows, setGeneratedRows] = useState<C2QualityPredictionOut[]>([]);
   const [modelInfo, setModelInfo] = useState<C2QualityModelInfoOut | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +115,9 @@ export default function RtmInventoryPage() {
     getC2QualityDatasetSamples(15)
       .then(setDatasetSamples)
       .catch(() => setDatasetSamples([]));
+    getGeneratedGapTestCases()
+      .then((rows) => setGeneratedRows(rows.filter((r) => r.test_case.added_to_inventory).map((r) => r.prediction)))
+      .catch(() => setGeneratedRows([]));
     getProjectSettings()
       .then((s) => {
         setC2ProjectId(s.component2_project_id || '');
@@ -142,7 +148,7 @@ export default function RtmInventoryPage() {
       .finally(() => setLoading(false));
   }, [c2Status?.connected, c2ProjectId, c2IterationId]);
 
-  const rows = [...predictions, ...datasetSamples];
+  const rows = [...generatedRows, ...predictions, ...datasetSamples];
 
   // Top 3 factors by the model's global learned importance, so every row
   // highlights the same (most influential) features rather than an
@@ -194,7 +200,7 @@ export default function RtmInventoryPage() {
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-2xl bg-white shadow-sm">
-        <table className="w-full min-w-[1100px] border-collapse text-sm">
+        <table className="w-full min-w-[1350px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-xs uppercase text-slate-500">
               <th className="px-4 py-3 text-left">Test Case</th>
@@ -211,9 +217,14 @@ export default function RtmInventoryPage() {
               const confidence = Math.max(0, ...Object.values(p.probabilities || {}));
               return (
                 <tr key={p.test_case_id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-2.5">
-                    <p className="font-medium text-slate-700">{p.title}</p>
-                    <p className="font-mono text-[11px] text-slate-400">{p.test_case_id.slice(0, 8)}…</p>
+                  <td className="max-w-[260px] px-4 py-2.5">
+                    {p.description && extractGwtSteps(p.description) ? (
+                      <pre className="max-h-20 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] text-slate-600">
+                        {extractGwtSteps(p.description)}
+                      </pre>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold text-indigo-600">
                     {p.quality_score.toFixed(1)}

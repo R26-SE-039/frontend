@@ -310,6 +310,7 @@ export interface C2QualityPredictionOut {
   title: string;
   story_id: string;
   status: string;
+  description: string;
   features: C2QualityFeaturesOut;
   quality_score: number;
   formula_label: string;
@@ -473,4 +474,105 @@ export interface C2TestCaseOut {
   error_message: string | null;
   executed_at: string | null;
   fail_rate: number;
+}
+
+// ── Intelligent Test Improvement & Recommendations ─────────────────────
+
+export interface QualityGapOut {
+  area: string;
+  label: string;
+  status: string;
+  severity: string;
+  recommendation: string;
+}
+
+export interface C2ImproveRequest {
+  title: string;
+  description: string;
+  features: C2QualityFeaturesOut;
+  quality_score: number;
+  predicted_label: string;
+  probabilities: Record<string, number>;
+  requirement_text: string;
+  user_story_title: string;
+  acceptance_criteria: string[];
+}
+
+export interface C2ImproveResponse {
+  gaps: QualityGapOut[];
+  improved_description: string;
+  improved_features: C2QualityFeaturesOut;
+  improved_quality_score: number;
+  improved_formula_label: string;
+  improved_predicted_label: string;
+  improved_probabilities: Record<string, number>;
+  improved_method: string;
+}
+
+// ── Risk-Based Coverage Gap Prioritization & Resolution ─────────────────
+
+export interface GapRiskFactorsOut {
+  business_priority: number;
+  coverage_gap: number;
+  acceptance_criteria_gap: number;
+  test_failure_rate: number;
+  code_coverage_gap: number;
+}
+
+export interface C2CoverageGapOut {
+  requirement_id: string;
+  requirement_text: string;
+  requirement_type: string;
+  user_story_id: string;
+  user_story_title: string;
+  user_story_text: string;
+  priority: string;
+  total_acceptance_criteria: number;
+  covered_acceptance_criteria: number;
+  missing_acceptance_criteria: string[];
+  linked_test_case_count: number;
+  current_coverage_pct: number;
+  risk_score: number;
+  risk_level: string;
+  risk_factors: GapRiskFactorsOut;
+  recommended_action: string;
+}
+
+export interface GenerateGapTestCaseRequest {
+  requirement_id: string;
+  requirement_text: string;
+  user_story_id: string;
+  user_story_title: string;
+  user_story_text: string;
+  acceptance_criterion: string;
+}
+
+export interface GeneratedGapTestCaseOut {
+  id: number;
+  requirement_id: string;
+  requirement_text: string;
+  user_story_id: string;
+  user_story_title: string;
+  acceptance_criterion: string;
+  title: string;
+  description: string;
+  added_to_inventory: boolean;
+  added_to_rtm: boolean;
+}
+
+export interface GeneratedGapTestCasePredictionOut {
+  test_case: GeneratedGapTestCaseOut;
+  prediction: C2QualityPredictionOut;
+}
+
+export interface AddGapTestCaseRequest {
+  target: 'inventory' | 'rtm';
+}
+
+export interface GenerateAllGapTestCasesRequest {
+  items: GenerateGapTestCaseRequest[];
+}
+
+export interface GenerateAllGapTestCasesResponse {
+  generated: GeneratedGapTestCasePredictionOut[];
 }

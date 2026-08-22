@@ -32,6 +32,7 @@ import RtmGapsPage from "./pages/RtmGapsPage";
 import RtmCoveragePage from "./pages/RtmCoveragePage";
 import RtmPortfolioPage from "./pages/RtmPortfolioPage";
 import RtmRequirementDetailPage from "./pages/RtmRequirementDetailPage";
+import RtmTestImprovementPage from "./pages/RtmTestImprovementPage";
 import SystemStatusPage from "./pages/SystemStatusPage";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 
@@ -288,6 +289,14 @@ function App() {
             element={
               <RtmRoute title="Quality Prediction">
                 <RtmQualityPredictionPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/test-improvement"
+            element={
+              <RtmRoute title="Test Improvement">
+                <RtmTestImprovementPage />
               </RtmRoute>
             }
           />

@@ -1,7 +1,7 @@
 // ── API Gateway base ────────────────────────────────────────────────────
 // All frontend → backend traffic flows through the API Gateway.
-export const GATEWAY_BASE_URL = "http://localhost:8080";
-export const GATEWAY_WS_URL = "ws://localhost:8080";
+export const GATEWAY_BASE_URL = "http://localhost:8081";
+export const GATEWAY_WS_URL = "ws://localhost:8081";
 
 // ── Microservices URLs (via API Gateway) ────────────────────────────────
 export const AUTH_API_URL = `${GATEWAY_BASE_URL}/api/auth-service`;
