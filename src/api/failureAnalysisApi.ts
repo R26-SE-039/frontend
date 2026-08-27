@@ -6,6 +6,8 @@ import type {
   Failure,
   FlakyTest,
   HealingAction,
+  GitHubFailedRunsResponse,
+  GitHubRunDetailsResponse,
   ListResponse,
   Notification,
   RepairHistoryFilters,
@@ -126,6 +128,27 @@ export const failureAnalysisApi = {
     const response = await authenticatedFetch(`${FAILURE_ANALYSIS_API_URL}${withProjectScope(`/notifications/?page=${page}&limit=${limit}`)}`);
 
     return parseJsonResponse<ListResponse<Notification>>(response, 'Failed to fetch notifications');
+  },
+
+  fetchGithubFailedRuns: async (): Promise<GitHubFailedRunsResponse> => {
+    const response = await authenticatedFetch(`${FAILURE_ANALYSIS_API_URL}${withProjectScope('/api/github/actions/failed-runs')}`);
+
+    return parseJsonResponse<GitHubFailedRunsResponse>(response, 'Failed to fetch failed CI runs');
+  },
+
+  fetchGithubRunDetails: async (runId: number | string): Promise<GitHubRunDetailsResponse> => {
+    const response = await authenticatedFetch(`${FAILURE_ANALYSIS_API_URL}${withProjectScope(`/api/github/actions/runs/${runId}`)}`);
+
+    return parseJsonResponse<GitHubRunDetailsResponse>(response, 'Failed to fetch failed CI run details');
+  },
+
+  analyzeGithubFailedJob: async <T>(runId: number | string, jobId: number | string): Promise<T> => {
+    const response = await authenticatedFetch(`${FAILURE_ANALYSIS_API_URL}${withProjectScope(`/api/github/actions/runs/${runId}/jobs/${jobId}/analyze`)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    return parseJsonResponse<T>(response, 'GitHub failure analysis failed');
   },
 
   fetchDashboardSummary: async (): Promise<DashboardSummary> => {

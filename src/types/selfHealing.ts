@@ -72,6 +72,94 @@ export type DashboardSummary = {
   }>;
 };
 
+
+export type GitHubWorkflowRun = {
+  run_id: number;
+  run_number?: number | null;
+  run_attempt?: number | null;
+  name?: string | null;
+  display_title?: string | null;
+  status?: string | null;
+  conclusion?: string | null;
+  head_branch?: string | null;
+  head_sha?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  html_url?: string | null;
+  repository_full_name?: string | null;
+  check_suite_id?: number | null;
+};
+
+export type GitHubJobStep = {
+  number?: number | null;
+  name?: string | null;
+  status?: string | null;
+  conclusion?: string | null;
+};
+
+export type GitHubWorkflowJob = {
+  job_id: number;
+  name?: string | null;
+  status?: string | null;
+  conclusion?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  html_url?: string | null;
+  steps?: GitHubJobStep[];
+};
+
+export type GitHubFailedRunsResponse = {
+  repository: string;
+  runs: GitHubWorkflowRun[];
+};
+
+export type GitHubRunDetailsResponse = {
+  repository: string;
+  run: GitHubWorkflowRun;
+  failed_jobs: GitHubWorkflowJob[];
+  jobs?: GitHubWorkflowJob[];
+};
+
+export type GitHubAnalyzeFailureResponse = {
+  source: "github_actions";
+  github: {
+    repository?: string | null;
+    run_id?: number | null;
+    job_id?: number | null;
+    run_url?: string | null;
+    head_sha?: string | null;
+    head_branch?: string | null;
+  } | null;
+  evidence: {
+    candidate_file?: string | null;
+    candidate_line?: number | null;
+    error_type?: string | null;
+    error_message?: string | null;
+    evidence_hash?: string | null;
+  } | null;
+  analysis: unknown;
+  failure?: {
+    test_id?: string | null;
+    status?: string | null;
+  } | null;
+  classification?: {
+    root_cause?: string | null;
+    confidence?: number | null;
+    decision_source?: string | null;
+    all_probabilities?: Record<string, number> | null;
+  } | null;
+  healing?: {
+    selected_action?: string | null;
+    recommendation?: string | null;
+    automatic_execution_allowed?: boolean | null;
+  } | null;
+  repair?: {
+    attempt_id?: string | null;
+    eligible?: boolean | null;
+    reason?: string | null;
+    github_changes_made?: boolean | null;
+  } | null;
+};
 export type RepairHistoryItem = {
   attempt_id: string;
   root_cause: string;
