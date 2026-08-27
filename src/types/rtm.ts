@@ -1,137 +1,74 @@
-// ── Enums (mirrors backend/app/models.py) ─────────────────────────────────
+// Types for the RTM & Quality Prediction module — mirrors the RTM backend's
+// pydantic response models (RTM-and-Quality-Prediction-backend/app/schemas.py).
+// Everything is scoped to the open project + its active iteration.
 
-export type TestStatus = 'pending' | 'approved' | 'rejected';
-export type CoverageStatus = 'FULLY COVERED' | 'PARTIAL' | 'NOT COVERED';
-export type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-export type ActionType = 'redundant' | 'critical' | 'weak';
-export type CoverageJobStatus = 'IDLE' | 'RUNNING' | 'DONE' | 'ERROR';
+// ── RTM Matrix ──────────────────────────────────────────────────────────────
 
-// ── Requirements ───────────────────────────────────────────────────────
-
-export interface RequirementOut {
-  id: number;
+export interface MatrixTest {
+  id: string;
   title: string;
   description: string;
-  source: string;
-  req_type: string;
-  wbs_deliverables: string;
-  created_at: string;
+  status: string; // approved | rejected | pending
+  source: string; // "C2" | "generated"
 }
 
-export interface AcceptanceCriteriaOut {
-  id: number;
-  requirement_id: number;
-  description: string;
-  created_at: string;
-}
-
-// ── Test cases ─────────────────────────────────────────────────────────
-
-export interface TestCaseOut {
-  id: number;
-  title: string;
-  steps: string;
-  acceptance_criteria_id: number;
-  assertion_strength: number;
-  coverage_percent: number;
-  boundary_coverage: number;
-  error_handling: number;
-  mutation_resistance: number;
-  quality_score: number | null;
-  status: TestStatus;
-  created_at: string;
-}
-
-export interface QualityPredictionOut {
-  test_case_id: number;
-  quality_score: number;
-  status: TestStatus;
-  method: string;
-}
-
-// ── Code coverage ──────────────────────────────────────────────────────
-
-export interface CodeCoverageOut {
-  id: number;
-  test_case_id: number;
-  module_name: string;
-  coverage_percent: number;
-  created_at: string;
-}
-
-// ── RTM ────────────────────────────────────────────────────────────────
-
-export interface RTMTestEntry {
-  test_case_id: number;
-  title: string;
-  status: TestStatus;
-  quality_score: number | null;
-  coverage_percent: number;
-}
-
-export interface RTMAcceptanceCriteriaEntry {
-  acceptance_criteria_id: number;
-  description: string;
-  tests: RTMTestEntry[];
-  covered: boolean;
-}
-
-export interface RTMRequirementEntry {
-  requirement_id: number;
-  title: string;
-  description: string;
-  source: string;
-  req_type: string;
-  wbs_deliverables: string;
-  acceptance_criteria: RTMAcceptanceCriteriaEntry[];
+export interface MatrixRow {
+  requirement_id: string;
+  requirement_text: string;
+  requirement_type: string;
+  requirement_status: string;
+  meeting_title: string | null;
+  user_story_id: string;
+  user_story_title: string;
+  user_story_text: string;
+  priority: string;
+  user_story_status: string | null;
+  acceptance_criteria: string[];
   total_acceptance_criteria: number;
   covered_acceptance_criteria: number;
+  missing_acceptance_criteria: string[];
+  coverage_pct: number;
+  tests: MatrixTest[];
   total_tests: number;
-  avg_coverage_percent: number;
-  status: CoverageStatus;
+  passed_tests: number;
+  failed_tests: number;
+  pending_tests: number;
+  coverage_status: string; // FULLY COVERED | PARTIAL | NOT COVERED
 }
 
-// ── Coverage gaps ──────────────────────────────────────────────────────
-
-export interface CoverageGapOut {
-  requirement_id: number;
-  requirement_title: string;
-  status: CoverageStatus;
-  risk_level: RiskLevel;
-  recommendation: string;
+export interface MatrixSummary {
+  total_requirements: number;
+  fully_covered: number;
+  partially_covered: number;
+  not_covered: number;
+  total_tests: number;
+  passed_tests: number;
+  failed_tests: number;
+  pending_tests: number;
+  pass_rate: number;
+  defects: number;
+  avg_coverage_pct: number;
 }
 
-// ── Portfolio ──────────────────────────────────────────────────────────
-
-export interface PortfolioActionOut {
-  test_case_id: number;
-  test_title: string;
-  action_type: ActionType;
-  reason: string;
+export interface Matrix {
+  project_id: string;
+  iteration_id: string;
+  summary: MatrixSummary;
+  rows: MatrixRow[];
 }
 
-export interface PortfolioAnalysisOut {
-  redundant: PortfolioActionOut[];
-  critical: PortfolioActionOut[];
-  weak: PortfolioActionOut[];
-}
+// ── Dashboard ───────────────────────────────────────────────────────────────
 
-// ── Project settings ───────────────────────────────────────────────────
-
-export interface ProjectSettingsOut {
-  project_name: string;
-  project_manager: string;
-  project_description: string;
-  component2_project_id: string | null;
-  component1_iteration_id: string | null;
-}
-
-// ── Dashboard ──────────────────────────────────────────────────────────
-
-export interface TrendPoint {
-  date: string;
-  avg_quality: number;
-  avg_coverage: number;
+export interface RecentRun {
+  id: string;
+  status: string;
+  framework: string;
+  mode: string;
+  started_at: string | null;
+  finished_at: string | null;
+  total_count: number;
+  passed_count: number;
+  failed_count: number;
 }
 
 export interface QualityBucket {
@@ -139,114 +76,62 @@ export interface QualityBucket {
   tests: number;
 }
 
-export interface ActivityOut {
-  activity_type: string;
-  title: string;
-  detail: string;
-  created_at: string;
+export interface CodeCoverageSnapshot {
+  status: string;
+  repo_url: string;
+  statement_coverage: number;
+  branch_coverage: number;
+  overall_coverage: number;
+  updated_at: string | null;
 }
 
-export interface DashboardSummaryOut {
-  tests_analyzed: number;
+export interface DashboardSummary {
+  matrix: MatrixSummary;
   avg_quality_score: number;
-  coverage_rate: number;
-  success_rate: number;
-  quality_trend_pct: number;
-  trend: TrendPoint[];
-  requirements_covered: number;
-  requirements_total: number;
   quality_distribution: QualityBucket[];
-  recent_activities: ActivityOut[];
+  code_coverage: CodeCoverageSnapshot | null;
+  recent_runs: RecentRun[];
 }
 
-// ── ML model info (research / viva-facing panel) ───────────────────────
+// ── Test Inventory ──────────────────────────────────────────────────────────
 
-export interface FeatureImportanceOut {
-  feature: string;
-  label: string;
-  importance: number;
-  formula_weight: number;
-  coefficient: number | null;
-}
-
-export interface ModelComparisonEntry {
-  model: string;
-  cv_mae_mean: number;
-  cv_mae_std: number;
-}
-
-export interface ClassificationMetricsOut {
-  task: string;
-  accuracy: number;
-  precision: number;
-  recall: number;
-  f1: number;
-  confusion_matrix: number[][];
-  confusion_matrix_labels: string[];
-}
-
-export interface ModelInfoOut {
-  trained: boolean;
-  algorithm: string;
-  hyperparameters: Record<string, unknown>;
-  model_comparison: ModelComparisonEntry[];
-  dataset_path: string;
-  training_samples: number;
-  test_samples: number;
-  mae: number;
-  rmse: number;
-  r2: number;
-  cv_mae_mean: number;
-  cv_mae_std: number;
-  feature_importances: FeatureImportanceOut[];
-  quality_reject_threshold: number;
-  classification_metrics: ClassificationMetricsOut | null;
-  trained_at: string | null;
-  notes: string;
-}
-
-// ── Dataset info (EDA panel) ────────────────────────────────────────────
-
-export interface FeatureStatOut {
-  feature: string;
-  label: string;
-  mean: number;
-  std: number;
-  min: number;
-  max: number;
-  correlation_with_target: number;
-}
-
-export interface CategoryCountOut {
-  label: string;
-  count: number;
-}
-
-export interface ExcludedFeatureOut {
-  feature: string;
-  correlation_with_target: number;
-  note: string;
-}
-
-export interface DatasetInfoOut {
-  available: boolean;
+export interface InventoryItem {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
   source: string;
-  n_rows: number;
-  n_features_used: number;
-  missing_values: number;
-  target_mean: number;
-  target_std: number;
-  target_min: number;
-  target_max: number;
-  reject_rate: number;
-  feature_stats: FeatureStatOut[];
-  excluded_feature_correlation: ExcludedFeatureOut | null;
-  quality_label_distribution: CategoryCountOut[];
-  test_type_distribution: CategoryCountOut[];
-  module_criticality_distribution: CategoryCountOut[];
+  story_id: string;
+  user_story_title: string;
+  requirement_id: string;
+  requirement_text: string;
+  priority: string;
+  quality_score: number | null;
+  predicted_label: string | null;
 }
 
-// ── GitHub code & branch coverage ─────────────────────────────────────
+// ── Portfolio ───────────────────────────────────────────────────────────────
+
+export interface PortfolioItem {
+  test_id: string;
+  test_title: string;
+  user_story_title: string;
+  reason: string;
+}
+
+export interface PortfolioAnalysis {
+  redundant: PortfolioItem[];
+  critical: PortfolioItem[];
+  weak: PortfolioItem[];
+}
+
+// ── GitHub code coverage ────────────────────────────────────────────────────
+
+export interface CoverageLogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+}
 
 export interface CoverageFileEntry {
   file_name: string;
@@ -257,22 +142,16 @@ export interface CoverageFileEntry {
   overall_coverage: number;
 }
 
-export interface CoverageLogEntry {
-  timestamp: string;
-  level: string;
-  message: string;
-}
-
-export interface CoverageStatusOut {
-  status: CoverageJobStatus;
+export interface CoverageStatus {
+  status: string; // IDLE | RUNNING | DONE | ERROR
   repo_url: string;
   error_message: string | null;
   github_connected: boolean;
   logs: CoverageLogEntry[];
 }
 
-export interface CoverageReportOut {
-  status: CoverageJobStatus;
+export interface CoverageReport {
+  status: string;
   repo_url: string;
   error_message: string | null;
   statement_coverage: number;
@@ -283,15 +162,18 @@ export interface CoverageReportOut {
   updated_at: string | null;
 }
 
-export interface GithubConnectionStatusOut {
+export interface GithubConnectionStatus {
   connected: boolean;
+  source: string | null; // "project" | "env"
   reason: string | null;
   username: string | null;
+  repo_full: string | null;
+  default_branch: string | null;
 }
 
-// ── Component 2 test-case quality (Random Forest research pipeline) ────
+// ── Quality prediction (Component 2 research pipeline) ──────────────────────
 
-export interface C2QualityFeaturesOut {
+export interface C2QualityFeatures {
   test_case: string;
   description_length: number;
   has_expected_result: number;
@@ -305,12 +187,13 @@ export interface C2QualityFeaturesOut {
   test_result: number;
 }
 
-export interface C2QualityPredictionOut {
+export interface C2QualityPrediction {
   test_case_id: string;
   title: string;
   story_id: string;
   status: string;
-  features: C2QualityFeaturesOut;
+  description: string;
+  features: C2QualityFeatures;
   quality_score: number;
   formula_label: string;
   predicted_label: string;
@@ -318,159 +201,79 @@ export interface C2QualityPredictionOut {
   method: string;
 }
 
-export interface C2QualityFeatureImportanceOut {
-  feature: string;
+export interface QualityGap {
+  area: string;
   label: string;
-  importance: number;
-}
-
-export interface C2QualityPerClassMetricOut {
-  label: string;
-  precision: number;
-  recall: number;
-  f1: number;
-  support: number;
-}
-
-export interface C2QualityModelInfoOut {
-  trained: boolean;
-  algorithm: string;
-  hyperparameters: Record<string, unknown>;
-  dataset_path: string;
-  label_order: string[];
-  training_samples: number;
-  test_samples: number;
-  cv_accuracy_mean: number;
-  cv_accuracy_std: number;
-  accuracy: number;
-  precision_macro: number;
-  recall_macro: number;
-  f1_macro: number;
-  per_class_metrics: C2QualityPerClassMetricOut[];
-  confusion_matrix: number[][];
-  confusion_matrix_labels: string[];
-  feature_importances: C2QualityFeatureImportanceOut[];
-  trained_at: string | null;
-  notes: string;
-}
-
-export interface C2QualityDatasetInfoOut {
-  available: boolean;
-  n_rows: number;
-  label_distribution: CategoryCountOut[];
-  feature_stats: FeatureStatOut[];
-}
-
-// ── Component 2 (Intelligent-Test-Case-Generation) integration ─────────
-
-export interface C2StatusOut {
-  connected: boolean;
-  base_url: string;
-}
-
-export interface C2ProjectOut {
-  id: string;
-  name: string;
-  description: string | null;
-  created_at: string | null;
-}
-
-export interface C2TestSuiteOut {
-  id: string;
-  project_id: string;
-  framework: string;
-  language: string;
-  filename: string;
-  code: string;
-  mode: string;
-  url: string;
-  version: number;
-  is_active: boolean;
-  is_stale: boolean;
-  selected_for_run: boolean;
-  updated_at: string | null;
-}
-
-export interface C2RunOut {
-  id: string;
-  project_id: string;
-  suite_id: string | null;
-  framework: string;
-  mode: string;
   status: string;
-  github_run_url: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  duration_ms: number | null;
-  total_count: number;
-  passed_count: number;
-  failed_count: number;
-  log_url: string;
-  error_message: string | null;
+  severity: string;
+  recommendation: string;
 }
 
-export interface C2RiskPredictionOut {
-  flow: string;
-  label: string;
-  risk: string;
-  confidence: number;
-  probabilities: Record<string, number>;
+export interface ImproveResponse {
+  gaps: QualityGap[];
+  improved_description: string;
+  improved_features: C2QualityFeatures;
+  improved_quality_score: number;
+  improved_formula_label: string;
+  improved_predicted_label: string;
+  improved_probabilities: Record<string, number>;
+  improved_method: string;
 }
 
-export interface C2RiskResponseOut {
-  project_id: string;
-  source: string;
-  predictions: C2RiskPredictionOut[];
+// ── Coverage gaps ───────────────────────────────────────────────────────────
+
+export interface GapRiskFactors {
+  business_priority: number;
+  coverage_gap: number;
+  acceptance_criteria_gap: number;
+  test_failure_rate: number;
+  code_coverage_gap: number;
 }
 
-export interface C2FailedTestOut {
-  test_name: string;
-  pipeline: string;
-  error_message: string;
-  failure_type: string;
-  framework: string | null;
-  executed_at: string | null;
-}
-
-export interface C2FailedTestsResponseOut {
-  project_id: string;
-  total: number;
-  failures: C2FailedTestOut[];
-}
-
-export interface C1RequirementWithStoryOut {
+export interface CoverageGap {
   requirement_id: string;
   requirement_text: string;
   requirement_type: string;
-  requirement_status: string;
-  meeting_title: string | null;
   user_story_id: string;
   user_story_title: string;
   user_story_text: string;
   priority: string;
-  user_story_status: string | null;
-  acceptance_criteria: string[];
+  total_acceptance_criteria: number;
+  covered_acceptance_criteria: number;
+  missing_acceptance_criteria: string[];
+  linked_test_case_count: number;
+  current_coverage_pct: number;
+  risk_score: number;
+  risk_level: string;
+  risk_factors: GapRiskFactors;
+  recommended_action: string;
 }
 
-/** One test case sourced from Component 2's traceability endpoint, carrying
- * its owning user story's id so it can be joined to Component 1's
- * requirements-with-stories by user_story_id. */
-export interface C2GherkinTestCaseOut {
-  story_id: string;
-  id: string;
+export interface GeneratedGapTestCase {
+  id: number;
+  project_id: string;
+  requirement_id: string;
+  requirement_text: string;
+  user_story_id: string;
+  user_story_title: string;
+  acceptance_criterion: string;
   title: string;
   description: string;
-  status: string;
+  added_to_inventory: boolean;
+  added_to_rtm: boolean;
 }
 
-/** One flattened scenario result assembled from recent C2 execution runs. */
-export interface C2TestCaseOut {
-  id: string;
-  title: string;
-  status: string;
-  framework: string;
-  duration_ms: number | null;
-  error_message: string | null;
-  executed_at: string | null;
-  fail_rate: number;
+export interface GeneratedGapTestCasePrediction {
+  test_case: GeneratedGapTestCase;
+  prediction: C2QualityPrediction;
+}
+
+export interface GenerateGapTestCasePayload {
+  project_id: string;
+  requirement_id: string;
+  requirement_text: string;
+  user_story_id: string;
+  user_story_title: string;
+  user_story_text: string;
+  acceptance_criterion: string;
 }

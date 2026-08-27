@@ -1,235 +1,269 @@
-import { GitBranch, Play, RefreshCw } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import {
-  analyzeGithubCoverage,
-  getGithubConnectionStatus,
-  getGithubCoverageReport,
-  getGithubCoverageStatus,
-} from '../api/rtmApi';
-import ConcentricRings from '../components/rtm/ConcentricRings';
-import LogTerminal from '../components/rtm/LogTerminal';
-import type { CoverageJobStatus, CoverageLogEntry, CoverageReportOut } from '../types/rtm';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { GitBranch, Play, RefreshCw } from "lucide-react";
+import { rtmApi } from "../api/rtmApi";
+import RtmStatCard from "../components/rtm/RtmStatCard";
+import { RtmEmptyState, RtmErrorBanner, RtmSpinner } from "../components/rtm/RtmPageState";
+import { useRtmContext } from "../components/rtm/useRtmContext";
+import type { CoverageReport, GithubConnectionStatus } from "../types/rtm";
 
-const STATUS_META: Record<CoverageJobStatus, { label: string; dot: string; text: string; bg: string }> = {
-  IDLE: { label: 'IDLE', dot: 'bg-red-500', text: 'text-slate-700', bg: 'bg-slate-100' },
-  RUNNING: { label: 'RUNNING', dot: 'bg-amber-500 animate-pulse', text: 'text-amber-700', bg: 'bg-amber-50' },
-  DONE: { label: 'DONE', dot: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50' },
-  ERROR: { label: 'FAILED', dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
+const LOG_COLORS: Record<string, string> = {
+  error: "text-red-400",
+  success: "text-green-400",
+  tip: "text-amber-300",
+  info: "text-slate-300",
 };
 
-function ProgressRow({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
-  return (
-    <div className="mb-4 last:mb-0">
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="text-slate-600">{label}</span>
-        <span className={`font-bold ${highlight ? 'text-green-600' : 'text-indigo-600'}`}>
-          {value.toFixed(0)}%
-        </span>
-      </div>
-      <div className="h-2 w-full rounded-full bg-slate-100">
-        <div
-          className={`h-2 rounded-full ${highlight ? 'bg-green-500' : 'bg-indigo-500'}`}
-          style={{ width: `${Math.max(2, Math.min(100, value))}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 export default function RtmCoveragePage() {
-  const [repoUrl, setRepoUrl] = useState('');
-  const [status, setStatus] = useState<CoverageJobStatus>('IDLE');
-  const [logs, setLogs] = useState<CoverageLogEntry[]>([]);
-  const [githubConnected, setGithubConnected] = useState(false);
-  const [connectionReason, setConnectionReason] = useState<string | null>(null);
-  const [report, setReport] = useState<CoverageReportOut | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ctx = useRtmContext();
+  const [github, setGithub] = useState<GithubConnectionStatus | null>(null);
+  const [report, setReport] = useState<CoverageReport | null>(null);
+  const [manualUrl, setManualUrl] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<number | null>(null);
+  const logEndRef = useRef<HTMLDivElement | null>(null);
 
-  const loadReport = () => {
-    getGithubCoverageReport().then(setReport).catch(() => {});
-  };
-
-  const loadConnectionStatus = () => {
-    getGithubConnectionStatus()
-      .then((s) => {
-        setGithubConnected(s.connected);
-        setConnectionReason(s.reason);
-      })
-      .catch(() => {});
-  };
-
-  const syncStatus = async () => {
-    const s = await getGithubCoverageStatus();
-    setStatus(s.status);
-    setLogs(s.logs || []);
-    if (s.repo_url) setRepoUrl(s.repo_url);
-    return s;
-  };
-
-  useEffect(() => {
-    syncStatus();
-    loadConnectionStatus();
-    loadReport();
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stopPolling = useCallback(() => {
+    if (pollRef.current !== null) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   }, []);
 
-  const pollStatus = () => {
-    pollRef.current = setInterval(async () => {
-      const s = await syncStatus();
-      if (s.status !== 'RUNNING') {
-        if (pollRef.current) clearInterval(pollRef.current);
-        if (s.status === 'DONE') loadReport();
-      }
-    }, 1000);
-  };
+  const refreshReport = useCallback(async () => {
+    if (!ctx.projectId) return;
+    const data = await rtmApi.getCoverageReport(ctx.projectId);
+    setReport(data);
+    if (data.status !== "RUNNING") stopPolling();
+  }, [ctx.projectId, stopPolling]);
 
-  const runCoverage = async () => {
-    if (!repoUrl.trim()) return;
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = window.setInterval(() => {
+      void refreshReport().catch(() => stopPolling());
+    }, 2500);
+  }, [refreshReport, stopPolling]);
+
+  const load = useCallback(async () => {
+    if (!ctx.projectId) return;
+    setLoading(true);
+    setError(null);
     try {
-      const s = await analyzeGithubCoverage(repoUrl);
-      setStatus(s.status);
-      setLogs(s.logs || []);
-      pollStatus();
-    } catch (e) {
-      // The backend persists a log transcript (including the error) even
-      // for the synchronous access-denied/config-error path — sync it now.
-      await syncStatus();
-      setStatus((prev) => (prev === 'RUNNING' ? 'ERROR' : prev));
+      const [status, reportData] = await Promise.all([
+        rtmApi.getGithubStatus(ctx.projectId),
+        rtmApi.getCoverageReport(ctx.projectId),
+      ]);
+      setGithub(status);
+      setReport(reportData);
+      if (reportData.status === "RUNNING") startPolling();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load coverage state.");
     } finally {
-      loadConnectionStatus();
+      setLoading(false);
+    }
+  }, [ctx.projectId, startPolling]);
+
+  useEffect(() => {
+    void load();
+    return stopPolling;
+  }, [load, stopPolling]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [report?.logs.length]);
+
+  const analyze = async () => {
+    if (!ctx.projectId) return;
+    setStarting(true);
+    setError(null);
+    try {
+      await rtmApi.analyzeCoverage(ctx.projectId, github?.source === "project" ? "" : manualUrl);
+      await refreshReport();
+      startPolling();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start the analysis.");
+    } finally {
+      setStarting(false);
     }
   };
 
-  const meta = STATUS_META[status] || STATUS_META.IDLE;
-  const files = report?.files || [];
+  const running = report?.status === "RUNNING";
+  const done = report?.status === "DONE";
 
   return (
-    <div>
-      <div className="flex items-start justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-indigo-600">GitHub Code &amp; Branch Coverage</h1>
-          <p className="mt-1 text-slate-500">
-            Agentic MCP Codebase Analysis &bull; Statement &amp; Branch Tracking &bull; Quality Assurance
+          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
+            Code Coverage
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Statement & branch coverage of the repository connected to{" "}
+            <span className="font-semibold text-amber-600">{ctx.projectName ?? "…"}</span>
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span
-            title={!githubConnected ? connectionReason || undefined : undefined}
-            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium ${
-              githubConnected
-                ? 'border-indigo-200 bg-indigo-50 text-indigo-600'
-                : 'border-slate-200 bg-slate-50 text-slate-400'
-            }`}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void load()}
+            disabled={loading || !!ctx.error}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:text-amber-600 disabled:opacity-50"
           >
-            <GitBranch size={15} />
-            GitHub MCP {githubConnected ? 'Connected' : 'Disconnected'}
-          </span>
-          {!githubConnected && connectionReason && (
-            <span className="max-w-xs text-right text-xs text-slate-400">{connectionReason}</span>
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
+          <button
+            onClick={() => void analyze()}
+            disabled={starting || running || !!ctx.error || (github?.source !== "project" && !manualUrl.trim())}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-200 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50"
+          >
+            <Play size={14} /> {running ? "Running..." : starting ? "Starting..." : "Analyze Coverage"}
+          </button>
+        </div>
+      </div>
+
+      {(ctx.error || error) && <RtmErrorBanner message={ctx.error ?? error ?? ""} />}
+
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <GitBranch size={18} />
+          </div>
+          {github?.source === "project" ? (
+            <div>
+              <p className="text-sm font-bold text-[var(--foreground)]">{github.repo_full}</p>
+              <p className="text-xs text-[var(--muted)]">
+                Connected in Test Script Gen
+                {github.username ? ` by ${github.username}` : ""} · branch{" "}
+                {github.default_branch ?? "main"} — analyzed with the project’s own credentials.
+              </p>
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-[var(--muted)]">
+                {github?.reason ??
+                  "No GitHub connection for this project — connect one in Test Script Gen, or paste a repository URL:"}
+              </p>
+              <input
+                value={manualUrl}
+                onChange={(e) => setManualUrl(e.target.value)}
+                placeholder="https://github.com/owner/repo"
+                className="mt-2 w-full max-w-xl rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+              />
+            </div>
           )}
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-5">
-        <div className="col-span-2 rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-[#1e1b4b]">GitHub MCP Repository Target</h2>
-
-          <div className="mt-4 flex gap-3">
-            <div className="relative flex-1">
-              <GitBranch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none"
-                placeholder="Enter any GitHub Repository URL"
-                value={repoUrl}
-                onChange={(e) => setRepoUrl(e.target.value)}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={runCoverage}
-              disabled={status === 'RUNNING'}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-            >
-              <Play size={15} /> {status === 'RUNNING' ? 'RUNNING…' : 'RUN COVERAGE'}
-            </button>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-500">Agent Status:</span>
-              <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold ${meta.bg} ${meta.text}`}>
-                <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
-                {meta.label}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={loadReport}
-              className="flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-            >
-              <RefreshCw size={14} /> RELOAD REPORT
-            </button>
-          </div>
-
-          <LogTerminal logs={logs} />
-        </div>
-
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="mb-2 text-lg font-bold text-[#1e1b4b]">Coverage Totals</h2>
-          <div className="flex justify-center">
-            <ConcentricRings
-              statement={report?.statement_coverage || 0}
-              branch={report?.branch_coverage || 0}
-              overall={report?.overall_coverage || 0}
+      {ctx.loading || loading ? (
+        <RtmSpinner label="Loading coverage state..." />
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <RtmStatCard
+              title="Overall Coverage"
+              value={done ? `${report!.overall_coverage.toFixed(1)}%` : "--"}
+              change={report?.repo_url ? report.repo_url.replace("https://github.com/", "") : "no run yet"}
+            />
+            <RtmStatCard
+              title="Statement Coverage"
+              value={done ? `${report!.statement_coverage.toFixed(1)}%` : "--"}
+              change="weighted across files"
+            />
+            <RtmStatCard
+              title="Branch Coverage"
+              value={done ? `${report!.branch_coverage.toFixed(1)}%` : "--"}
+              change="weighted across files"
             />
           </div>
-          <div className="mt-4">
-            <ProgressRow label="Statement Coverage" value={report?.statement_coverage || 0} />
-            <ProgressRow label="Branch Coverage" value={report?.branch_coverage || 0} />
-            <ProgressRow label="Overall Coverage" value={report?.overall_coverage || 0} highlight />
-          </div>
-        </div>
-      </div>
 
-      <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-[#1e1b4b]">File Breakdown Coverage List</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-xs uppercase text-slate-500">
-                <th className="px-4 py-3 text-left">File Name</th>
-                <th className="px-4 py-3 text-left">Statements</th>
-                <th className="px-4 py-3 text-left">Statement Coverage</th>
-                <th className="px-4 py-3 text-left">Branches</th>
-                <th className="px-4 py-3 text-left">Branch Coverage</th>
-                <th className="px-4 py-3 text-left">Overall Coverage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {files.map((f) => (
-                <tr key={f.file_name} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-2.5 font-medium text-slate-700">{f.file_name}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{f.statements}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{f.statement_coverage.toFixed(1)}%</td>
-                  <td className="px-4 py-2.5 text-slate-600">{f.branches}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{f.branch_coverage.toFixed(1)}%</td>
-                  <td className="px-4 py-2.5 text-slate-600">{f.overall_coverage.toFixed(1)}%</td>
-                </tr>
-              ))}
-              {files.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                    No coverage report yet — run an analysis above.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          {(running || (report?.logs.length ?? 0) > 0) && (
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Analysis Log
+                </p>
+                {running && (
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" /> RUNNING
+                  </span>
+                )}
+              </div>
+              <div className="max-h-64 overflow-y-auto p-4 font-mono text-[11px] leading-relaxed">
+                {report?.logs.map((log, i) => (
+                  <p key={i} className={LOG_COLORS[log.level] ?? "text-slate-300"}>
+                    <span className="text-slate-500">[{log.timestamp}]</span> {log.message}
+                  </p>
+                ))}
+                <div ref={logEndRef} />
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-4">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">Per-File Coverage</h3>
+            </div>
+            {!done || report!.files.length === 0 ? (
+              <RtmEmptyState
+                icon={<GitBranch size={20} />}
+                title="No coverage report yet"
+                subtitle="Run an analysis — the clone, test run, and per-file coverage breakdown appear here."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="px-6 py-3">File</th>
+                      <th className="px-4 py-3 text-center">Statements</th>
+                      <th className="px-4 py-3 text-center">Stmt %</th>
+                      <th className="px-4 py-3 text-center">Branches</th>
+                      <th className="px-4 py-3 text-center">Branch %</th>
+                      <th className="px-4 py-3">Overall</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report!.files.map((file) => (
+                      <tr key={file.file_name} className="border-b border-slate-50 hover:bg-slate-50/60">
+                        <td className="max-w-md truncate px-6 py-3 font-mono text-xs text-[var(--foreground)]">
+                          {file.file_name}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs text-[var(--muted)]">{file.statements}</td>
+                        <td className="px-4 py-3 text-center text-xs font-bold text-[var(--foreground)]">
+                          {file.statement_coverage.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs text-[var(--muted)]">{file.branches}</td>
+                        <td className="px-4 py-3 text-center text-xs font-bold text-[var(--foreground)]">
+                          {file.branch_coverage.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className={`h-full rounded-full ${
+                                  file.overall_coverage >= 80
+                                    ? "bg-green-500"
+                                    : file.overall_coverage >= 50
+                                      ? "bg-amber-500"
+                                      : "bg-red-500"
+                                }`}
+                                style={{ width: `${Math.min(file.overall_coverage, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-black text-[var(--muted)]">
+                              {file.overall_coverage.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

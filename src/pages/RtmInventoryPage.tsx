@@ -1,271 +1,164 @@
-import { CheckCircle2, ClipboardList, Clock, TestTube2, TrendingUp, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import {
-  getC2QualityDatasetSamples,
-  getC2QualityModelInfo,
-  getC2QualityPredictions,
-  getComponent2Status,
-  getProjectSettings,
-} from '../api/rtmApi';
-import type { C2QualityModelInfoOut, C2QualityPredictionOut, C2StatusOut } from '../types/rtm';
-
-const QUALITY_LABEL_BADGE: Record<string, string> = {
-  High: 'bg-green-100 text-green-700',
-  Medium: 'bg-amber-100 text-amber-700',
-  Low: 'bg-red-100 text-red-700',
-};
-
-function QualityLabelBadge({ label }: { label: string | null | undefined }) {
-  if (!label) return <span className="text-slate-400">—</span>;
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${QUALITY_LABEL_BADGE[label] || 'bg-slate-100 text-slate-500'}`}>
-      {label}
-    </span>
-  );
-}
-
-const TEST_RESULT_BADGE: Record<string, { label: string; cls: string; icon: React.ComponentType<{ size?: number }> }> = {
-  approved: { label: 'Pass', cls: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-  rejected: { label: 'Fail', cls: 'bg-red-100 text-red-700', icon: XCircle },
-  pending: { label: 'Pending', cls: 'bg-slate-100 text-slate-500', icon: Clock },
-};
-
-function TestResultBadge({ status }: { status: string }) {
-  const info = TEST_RESULT_BADGE[status] || TEST_RESULT_BADGE.pending;
-  const Icon = info.icon;
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${info.cls}`}>
-      <Icon size={13} /> {info.label}
-    </span>
-  );
-}
-
-function PredictionStatusBadge({ method }: { method: string }) {
-  const isMl = method === 'random_forest';
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        isMl ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
-      }`}
-    >
-      {isMl ? 'ML Predicted' : 'Formula-based'}
-    </span>
-  );
-}
-
-const FACTOR_LABELS: Record<string, string> = {
-  completeness_score: 'Completeness',
-  requirement_coverage: 'Req. Coverage',
-  specificity_score: 'Specificity',
-  ambiguity_score: 'Ambiguity',
-  has_expected_result: 'Expected Result',
-  has_preconditions: 'Preconditions',
-  has_test_steps: 'Test Steps',
-  requirement_linked: 'Req. Linked',
-  description_length: 'Description Length',
-  test_result: 'Execution Signal',
-};
-
-function formatFactorValue(key: string, value: number) {
-  if (['has_expected_result', 'has_preconditions', 'has_test_steps', 'requirement_linked'].includes(key)) {
-    return value ? 'Yes' : 'No';
-  }
-  if (key === 'description_length') return `${value} chars`;
-  return `${Math.round(value)}`;
-}
-
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  accent: { border: string; bg: string; text: string };
-}
-
-function StatCard({ label, value, icon: Icon, accent }: StatCardProps) {
-  return (
-    <div className={`flex items-center gap-4 rounded-2xl border-l-4 bg-white p-5 shadow-sm ${accent.border}`}>
-      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${accent.bg}`}>
-        <Icon size={18} className={accent.text} />
-      </span>
-      <div>
-        <p className="text-sm text-slate-500">{label}</p>
-        <p className="text-xl font-bold text-[#1e1b4b]">{value}</p>
-      </div>
-    </div>
-  );
-}
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FileText, RefreshCw } from "lucide-react";
+import { rtmApi } from "../api/rtmApi";
+import RtmPill from "../components/rtm/RtmPill";
+import RtmStatCard from "../components/rtm/RtmStatCard";
+import { RtmEmptyState, RtmErrorBanner, RtmSpinner } from "../components/rtm/RtmPageState";
+import { useRtmContext } from "../components/rtm/useRtmContext";
+import type { InventoryItem } from "../types/rtm";
 
 export default function RtmInventoryPage() {
-  const [c2Status, setC2Status] = useState<C2StatusOut | null>(null);
-  const [c2ProjectId, setC2ProjectId] = useState('');
-  const [c2IterationId, setC2IterationId] = useState('');
-
-  const [predictions, setPredictions] = useState<C2QualityPredictionOut[]>([]);
-  const [datasetSamples, setDatasetSamples] = useState<C2QualityPredictionOut[]>([]);
-  const [modelInfo, setModelInfo] = useState<C2QualityModelInfoOut | null>(null);
-  const [loading, setLoading] = useState(false);
+  const ctx = useRtmContext();
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  useEffect(() => {
-    getC2QualityModelInfo().then(setModelInfo).catch(() => setModelInfo(null));
-    getC2QualityDatasetSamples(15)
-      .then(setDatasetSamples)
-      .catch(() => setDatasetSamples([]));
-    getProjectSettings()
-      .then((s) => {
-        setC2ProjectId(s.component2_project_id || '');
-        setC2IterationId(s.component1_iteration_id || '');
-      })
-      .catch(() => {})
-      .finally(() => setSettingsLoaded(true));
-    getComponent2Status()
-      .then(setC2Status)
-      .catch(() => setC2Status({ connected: false, base_url: '' }));
-  }, []);
-
-  useEffect(() => {
-    if (!c2Status?.connected || !c2ProjectId) {
-      setPredictions([]);
-      return;
-    }
+  const load = useCallback(async () => {
+    if (!ctx.projectId || !ctx.iterationId) return;
     setLoading(true);
-    getC2QualityPredictions(c2ProjectId, c2IterationId || undefined)
-      .then((data) => {
-        setPredictions(data);
-        setError(null);
-      })
-      .catch((e) => {
-        setPredictions([]);
-        setError(e?.response?.data?.detail || 'Failed to load quality predictions.');
-      })
-      .finally(() => setLoading(false));
-  }, [c2Status?.connected, c2ProjectId, c2IterationId]);
+    setError(null);
+    try {
+      setItems(await rtmApi.getInventory(ctx.projectId, ctx.iterationId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load the test inventory.");
+    } finally {
+      setLoading(false);
+    }
+  }, [ctx.projectId, ctx.iterationId]);
 
-  const rows = [...predictions, ...datasetSamples];
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  // Top 3 factors by the model's global learned importance, so every row
-  // highlights the same (most influential) features rather than an
-  // arbitrary/inconsistent subset per row.
-  const topFactorKeys = [...(modelInfo?.feature_importances || [])]
-    .sort((a, b) => b.importance - a.importance)
-    .slice(0, 3)
-    .map((f) => f.feature as keyof C2QualityPredictionOut['features']);
+  const filtered = useMemo(
+    () => (statusFilter === "all" ? items : items.filter((i) => i.status === statusFilter)),
+    [items, statusFilter],
+  );
 
-  const highCount = rows.filter((p) => p.predicted_label === 'High').length;
-  const avgConfidence = rows.length
-    ? rows.reduce((sum, p) => sum + Math.max(0, ...Object.values(p.probabilities || {})), 0) / rows.length
+  const passed = items.filter((i) => i.status === "approved").length;
+  const failed = items.filter((i) => i.status === "rejected").length;
+  const avgQuality = items.length
+    ? Math.round(
+        items.reduce((sum, i) => sum + (i.quality_score ?? 0), 0) / items.length,
+      )
     : 0;
 
   return (
-    <div>
-      <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-          <TestTube2 size={20} />
-        </span>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#1e1b4b]">Test Inventory</h1>
-          <p className="mt-1 text-slate-500">
-            Every test case's ML-predicted quality, generated by the Quality Prediction page's Random
-            Forest model.
+          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
+            Test Inventory
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Every test case in play for{" "}
+            <span className="font-semibold text-amber-600">{ctx.projectName ?? "…"}</span>
+            {ctx.iterationName && (
+              <>
+                {" · iteration "}
+                <span className="font-semibold text-amber-600">{ctx.iterationName}</span>
+              </>
+            )}
           </p>
         </div>
+        <button
+          onClick={() => void load()}
+          disabled={loading || !!ctx.error}
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:text-amber-600 disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+        </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <StatCard
-          label="Total Test Cases"
-          value={rows.length}
-          icon={ClipboardList}
-          accent={{ border: 'border-blue-400', bg: 'bg-blue-50', text: 'text-blue-500' }}
-        />
-        <StatCard
-          label="Predicted High Quality"
-          value={rows.length ? `${highCount} (${Math.round((highCount / rows.length) * 100)}%)` : '—'}
-          icon={TrendingUp}
-          accent={{ border: 'border-green-400', bg: 'bg-green-50', text: 'text-green-500' }}
-        />
-        <StatCard
-          label="Avg. Prediction Confidence"
-          value={rows.length ? `${(avgConfidence * 100).toFixed(0)}%` : '—'}
-          icon={CheckCircle2}
-          accent={{ border: 'border-orange-400', bg: 'bg-orange-50', text: 'text-orange-500' }}
-        />
+      {(ctx.error || error) && <RtmErrorBanner message={ctx.error ?? error ?? ""} />}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <RtmStatCard title="Total Tests" value={loading ? "--" : String(items.length)} change="C2 + generated" />
+        <RtmStatCard title="Passing" value={loading ? "--" : String(passed)} change="latest execution result" />
+        <RtmStatCard title="Failing" value={loading ? "--" : String(failed)} change="need attention" />
+        <RtmStatCard title="Avg Quality" value={loading ? "--" : `${avgQuality}`} change="Random Forest score /100" />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl bg-white shadow-sm">
-        <table className="w-full min-w-[1100px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 text-xs uppercase text-slate-500">
-              <th className="px-4 py-3 text-left">Test Case</th>
-              <th className="px-4 py-3 text-right">Quality Score</th>
-              <th className="px-4 py-3 text-left">Quality Level</th>
-              <th className="px-4 py-3 text-right">Confidence</th>
-              <th className="px-4 py-3 text-left">Test Result</th>
-              <th className="px-4 py-3 text-left">Key Quality Factors</th>
-              <th className="px-4 py-3 text-left">Prediction Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((p) => {
-              const confidence = Math.max(0, ...Object.values(p.probabilities || {}));
-              return (
-                <tr key={p.test_case_id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-2.5">
-                    <p className="font-medium text-slate-700">{p.title}</p>
-                    <p className="font-mono text-[11px] text-slate-400">{p.test_case_id.slice(0, 8)}…</p>
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-indigo-600">
-                    {p.quality_score.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <QualityLabelBadge label={p.predicted_label} />
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-slate-600">
-                    {p.probabilities && Object.keys(p.probabilities).length > 0
-                      ? `${(confidence * 100).toFixed(0)}%`
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <TestResultBadge status={p.status} />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex flex-wrap gap-1">
-                      {topFactorKeys.length === 0 ? (
-                        <span className="text-slate-400">—</span>
-                      ) : (
-                        topFactorKeys.map((key) => (
-                          <span
-                            key={key}
-                            className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
-                          >
-                            {FACTOR_LABELS[key]}: {formatFactorValue(key, p.features[key] as number)}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <PredictionStatusBadge method={p.method} />
-                  </td>
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h3 className="text-sm font-bold text-[var(--foreground)]">Test Cases</h3>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 outline-none focus:border-amber-300"
+          >
+            <option value="all">All statuses</option>
+            <option value="approved">Passing</option>
+            <option value="rejected">Failing</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+
+        {ctx.loading || loading ? (
+          <RtmSpinner label="Scoring test cases..." />
+        ) : filtered.length === 0 ? (
+          <RtmEmptyState
+            icon={<FileText size={20} />}
+            title="No test cases found"
+            subtitle="Generate gherkin scenarios in Test Case Gen, or resolve coverage gaps — everything lands here automatically."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <th className="px-6 py-3">Test Case</th>
+                  <th className="px-4 py-3">User Story</th>
+                  <th className="px-4 py-3">Priority</th>
+                  <th className="px-4 py-3">Source</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-center">Quality</th>
                 </tr>
-              );
-            })}
-            {settingsLoaded && rows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                  {!c2Status?.connected
-                    ? "Component 2 isn't reachable and no trained dataset is available yet."
-                    : !c2ProjectId
-                      ? 'Link a Component 2 project from the RTM Matrix page, or train the quality model, to populate this list.'
-                      : loading
-                        ? 'Loading…'
-                        : error || 'No test cases found.'}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {filtered.map((item) => (
+                  <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/60">
+                    <td className="max-w-md px-6 py-3">
+                      <p className="truncate text-xs font-semibold text-[var(--foreground)]" title={item.title}>
+                        {item.title}
+                      </p>
+                      <p className="mt-0.5 truncate text-[10px] text-slate-400" title={item.requirement_text}>
+                        REQ-{item.requirement_id.slice(0, 8).toUpperCase()} · {item.requirement_text}
+                      </p>
+                    </td>
+                    <td className="max-w-xs px-4 py-3">
+                      <p className="truncate text-xs text-[var(--muted)]" title={item.user_story_title}>
+                        {item.user_story_title || "—"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <RtmPill label={item.priority || "—"} type="priority" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <RtmPill label={item.source === "C2" ? "C2" : "Generated"} type="source" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <RtmPill label={item.status} type="test" />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.predicted_label ? (
+                        <span className="inline-flex items-center gap-2">
+                          <RtmPill label={item.predicted_label} type="quality" />
+                          <span className="text-xs font-black text-[var(--muted)]">
+                            {Math.round(item.quality_score ?? 0)}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
