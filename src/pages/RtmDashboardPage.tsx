@@ -1,248 +1,232 @@
-import { Bug, CheckCircle2, RadioTower, Shield, TrendingUp } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { getDashboardSummary } from '../api/rtmApi';
-import type { DashboardSummaryOut } from '../types/rtm';
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Activity, GitBranch, RefreshCw } from "lucide-react";
+import { rtmApi } from "../api/rtmApi";
+import RtmPill from "../components/rtm/RtmPill";
+import RtmStatCard from "../components/rtm/RtmStatCard";
+import { RtmEmptyState, RtmErrorBanner, RtmSpinner } from "../components/rtm/RtmPageState";
+import { useRtmContext } from "../components/rtm/useRtmContext";
+import type { DashboardSummary } from "../types/rtm";
 
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  gradient: string;
-  progress: number;
-  footer?: string;
-}
-
-function StatCard({ label, value, icon: Icon, gradient, progress, footer }: StatCardProps) {
-  return (
-    <div className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-sm ${gradient}`}>
-      <div className="flex items-start justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-white/85">{label}</span>
-        <Icon size={20} className="text-white/90" />
-      </div>
-      <div className="mt-3 text-3xl font-bold">{value}</div>
-      {footer ? (
-        <div className="mt-1.5 flex items-center gap-1 text-xs text-white/90">
-          <TrendingUp size={13} />
-          {footer}
-        </div>
-      ) : null}
-      <div className="mt-4 h-1.5 rounded-full bg-white/25">
-        <div
-          className="h-1.5 rounded-full bg-white/85"
-          style={{ width: `${Math.max(4, Math.min(100, progress))}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-const TOGGLE_OPTIONS = ['Both', 'Quality', 'Coverage'] as const;
-const DONUT_COLORS = ['#6366f1', '#e2e8f0'];
+const BUCKET_COLORS: Record<string, string> = {
+  High: "bg-green-500",
+  Medium: "bg-yellow-500",
+  Low: "bg-red-500",
+};
 
 export default function RtmDashboardPage() {
-  const [summary, setSummary] = useState<DashboardSummaryOut | null>(null);
+  const ctx = useRtmContext();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState(new Date());
-  const [trendMode, setTrendMode] = useState<(typeof TOGGLE_OPTIONS)[number]>('Both');
+
+  const load = useCallback(async () => {
+    if (!ctx.projectId || !ctx.iterationId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setSummary(await rtmApi.getDashboardSummary(ctx.projectId, ctx.iterationId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load the dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }, [ctx.projectId, ctx.iterationId]);
 
   useEffect(() => {
-    getDashboardSummary()
-      .then(setSummary)
-      .catch((e) => setError(e.message));
-  }, []);
+    void load();
+  }, [load]);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (error) return <p className="text-red-700">Failed to load dashboard: {error}</p>;
-  if (!summary) return <p className="text-slate-500">Loading…</p>;
-
-  const trendPctLabel =
-    summary.quality_trend_pct >= 0
-      ? `+${summary.quality_trend_pct.toFixed(1)}%`
-      : `${summary.quality_trend_pct.toFixed(1)}%`;
-
-  const notCovered = Math.max(0, summary.requirements_total - summary.requirements_covered);
-  const coveredPct = summary.requirements_total
-    ? Math.round((summary.requirements_covered / summary.requirements_total) * 100)
-    : 0;
-  const donutData = [
-    { name: 'Covered', value: summary.requirements_covered || 0.0001 },
-    { name: 'Not Covered', value: notCovered || (summary.requirements_total ? 0 : 1) },
-  ];
+  const matrix = summary?.matrix;
+  const coveragePct = matrix
+    ? matrix.total_requirements
+      ? Math.round((matrix.fully_covered / matrix.total_requirements) * 100)
+      : 0
+    : null;
+  const totalBucketTests = summary?.quality_distribution.reduce((sum, b) => sum + b.tests, 0) ?? 0;
 
   return (
-    <div>
-      <div className="flex items-start justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-indigo-600">ML Test Quality Dashboard</h1>
-          <p className="mt-1 text-slate-500">
-            Real-time insights &bull; AI-Powered Analysis &bull; Quality Assurance
+          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
+            RTM Dashboard
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Coverage & quality overview for{" "}
+            <span className="font-semibold text-amber-600">{ctx.projectName ?? "…"}</span>
+            {ctx.iterationName && (
+              <>
+                {" · iteration "}
+                <span className="font-semibold text-amber-600">{ctx.iterationName}</span>
+              </>
+            )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3.5 py-1.5 text-sm font-medium text-indigo-600">
-            <RadioTower size={15} />
-            Live Updates
-          </span>
-          <span className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500">
-            Last updated: {now.toLocaleTimeString()}
-          </span>
-        </div>
+        <button
+          onClick={() => void load()}
+          disabled={loading || !!ctx.error}
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:text-amber-600 disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+        </button>
       </div>
 
-      <div className="mt-6 flex items-center justify-between rounded-2xl bg-white px-6 py-4 shadow-sm">
-        <h2 className="text-lg font-bold text-[#1e1b4b]">System Health Status</h2>
-        <span className="rounded-full bg-green-100 px-4 py-1.5 text-sm font-semibold text-green-700">
-          All Systems Operational
-        </span>
-      </div>
+      {(ctx.error || error) && <RtmErrorBanner message={ctx.error ?? error ?? ""} />}
 
-      <div className="mt-6 grid grid-cols-4 gap-5">
-        <StatCard
-          label="Tests Analyzed"
-          value={summary.tests_analyzed}
-          icon={Bug}
-          gradient="bg-gradient-to-br from-indigo-500 to-purple-600"
-          progress={Math.min(100, (summary.tests_analyzed / 20) * 100)}
-        />
-        <StatCard
-          label="Avg Quality Score"
-          value={`${summary.avg_quality_score.toFixed(0)}/100`}
-          icon={TrendingUp}
-          gradient="bg-gradient-to-br from-emerald-400 to-green-500"
-          progress={summary.avg_quality_score}
-          footer={`${trendPctLabel} from earliest data`}
-        />
-        <StatCard
-          label="Coverage Rate"
-          value={`${summary.coverage_rate.toFixed(0)}%`}
-          icon={CheckCircle2}
-          gradient="bg-gradient-to-br from-sky-400 to-blue-500"
-          progress={summary.coverage_rate}
-        />
-        <StatCard
-          label="Success Rate"
-          value={`${summary.success_rate.toFixed(0)}%`}
-          icon={Shield}
-          gradient="bg-gradient-to-br from-orange-400 to-red-500"
-          progress={summary.success_rate}
-        />
-      </div>
+      {ctx.loading || loading ? (
+        <RtmSpinner label="Computing live summary..." />
+      ) : summary && matrix ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <RtmStatCard
+              title="Requirement Coverage"
+              value={`${coveragePct}%`}
+              change={`${matrix.fully_covered}/${matrix.total_requirements} fully covered`}
+            />
+            <RtmStatCard
+              title="Test Cases"
+              value={String(matrix.total_tests)}
+              change={`${matrix.pending_tests} awaiting execution`}
+            />
+            <RtmStatCard
+              title="Pass Rate"
+              value={`${matrix.pass_rate}%`}
+              change={`${matrix.defects} failing test${matrix.defects === 1 ? "" : "s"}`}
+            />
+            <RtmStatCard
+              title="Avg Quality Score"
+              value={summary.avg_quality_score ? `${summary.avg_quality_score}` : "--"}
+              change="Random Forest quality model"
+            />
+          </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-5">
-        <div className="col-span-2 rounded-2xl bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#1e1b4b]">Quality &amp; Coverage Trends</h2>
-            <div className="flex rounded-lg bg-slate-100 p-1 text-sm">
-              {TOGGLE_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setTrendMode(opt)}
-                  className={`rounded-md px-3 py-1 font-medium transition-colors ${
-                    trendMode === opt ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">Quality Distribution</h3>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Model-predicted quality of every test case in this iteration
+              </p>
+              <div className="mt-6 space-y-4">
+                {summary.quality_distribution.map((bucket) => (
+                  <div key={bucket.label}>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-[var(--foreground)]">{bucket.label}</span>
+                      <span className="font-black text-[var(--muted)]">{bucket.tests}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className={`h-full rounded-full ${BUCKET_COLORS[bucket.label] ?? "bg-amber-500"}`}
+                        style={{
+                          width: totalBucketTests ? `${(bucket.tests / totalBucketTests) * 100}%` : "0%",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {totalBucketTests === 0 && (
+                  <p className="text-xs italic text-slate-400">No test cases scored yet.</p>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={summary.trend}>
-                <defs>
-                  <linearGradient id="qualityGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.6} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
-                  </linearGradient>
-                  <linearGradient id="coverageGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4ade80" stopOpacity={0.5} />
-                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                <Tooltip />
-                {trendMode !== 'Coverage' && (
-                  <Area
-                    type="monotone"
-                    dataKey="avg_quality"
-                    name="Quality"
-                    stroke="#16a34a"
-                    fill="url(#qualityGrad)"
-                    strokeWidth={2}
-                  />
-                )}
-                {trendMode !== 'Quality' && (
-                  <Area
-                    type="monotone"
-                    dataKey="avg_coverage"
-                    name="Coverage"
-                    stroke="#4ade80"
-                    fill="url(#coverageGrad)"
-                    strokeWidth={2}
-                  />
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-[#1e1b4b]">Requirements Coverage</h2>
-          <div className="relative mt-2 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donutData}
-                  dataKey="value"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={2}
-                  stroke="none"
-                  startAngle={90}
-                  endAngle={-270}
-                  isAnimationActive={false}
-                >
-                  {donutData.map((entry, i) => (
-                    <Cell key={entry.name} fill={DONUT_COLORS[i]} />
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[var(--foreground)]">Code Coverage</h3>
+                <Link to="/rtm/coverage" className="text-xs font-bold text-amber-600 hover:underline">
+                  Open analysis →
+                </Link>
+              </div>
+              {summary.code_coverage && summary.code_coverage.status === "DONE" ? (
+                <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+                  {(
+                    [
+                      ["Overall", summary.code_coverage.overall_coverage],
+                      ["Statements", summary.code_coverage.statement_coverage],
+                      ["Branches", summary.code_coverage.branch_coverage],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-slate-50 p-4">
+                      <p className="text-2xl font-extrabold text-amber-600">{value.toFixed(1)}%</p>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        {label}
+                      </p>
+                    </div>
                   ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-extrabold text-indigo-600">{coveredPct}%</span>
-              <span className="text-xs text-slate-400">Covered</span>
+                </div>
+              ) : (
+                <div className="mt-6 flex flex-col items-center gap-2 py-6 text-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                    <GitBranch size={18} />
+                  </div>
+                  <p className="text-xs text-[var(--muted)]">
+                    No completed coverage run for this project yet.
+                  </p>
+                </div>
+              )}
+              {summary.code_coverage?.repo_url && (
+                <p className="mt-4 truncate text-[10px] text-slate-400">
+                  {summary.code_coverage.repo_url}
+                </p>
+              )}
             </div>
           </div>
-          <div className="mt-2 flex items-center justify-center gap-6 text-sm">
-            <span className="flex items-center gap-1.5 text-slate-600">
-              <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" /> Covered (
-              {summary.requirements_covered})
-            </span>
-            <span className="flex items-center gap-1.5 text-slate-600">
-              <span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Not Covered ({notCovered})
-            </span>
+
+          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-4">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">Recent Executions</h3>
+            </div>
+            {summary.recent_runs.length === 0 ? (
+              <RtmEmptyState
+                icon={<Activity size={20} />}
+                title="No test runs yet"
+                subtitle="Run a generated suite from Test Script Gen — executions land here automatically."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="px-6 py-3">Run</th>
+                      <th className="px-4 py-3">Framework</th>
+                      <th className="px-4 py-3">Mode</th>
+                      <th className="px-4 py-3">Started</th>
+                      <th className="px-4 py-3 text-center">Passed</th>
+                      <th className="px-4 py-3 text-center">Failed</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.recent_runs.map((run) => (
+                      <tr key={run.id} className="border-b border-slate-50 hover:bg-slate-50/60">
+                        <td className="px-6 py-3 text-xs font-mono text-[var(--muted)]">
+                          {run.id.slice(0, 8)}
+                        </td>
+                        <td className="px-4 py-3 text-xs capitalize text-[var(--foreground)]">
+                          {run.framework}
+                        </td>
+                        <td className="px-4 py-3 text-xs capitalize text-[var(--muted)]">{run.mode}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--muted)]">
+                          {run.started_at ? new Date(run.started_at).toLocaleString() : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs font-bold text-green-600">
+                          {run.passed_count}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs font-bold text-red-600">
+                          {run.failed_count}
+                        </td>
+                        <td className="px-4 py-3">
+                          <RtmPill label={run.status} type="run" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        </>
+      ) : null}
     </div>
   );
 }
