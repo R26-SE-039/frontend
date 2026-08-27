@@ -1,7 +1,11 @@
 // ── API Gateway base ────────────────────────────────────────────────────
 // All frontend → backend traffic flows through the API Gateway.
-export const GATEWAY_BASE_URL = "http://localhost:8080";
-export const GATEWAY_WS_URL = "ws://localhost:8080";
+// Set VITE_GATEWAY_URL in the deployment env (e.g. Vercel) to the public
+// gateway URL, e.g. https://nextgenqasliit.duckdns.org. Falls back to
+// localhost for local dev. The WS URL is derived (http→ws, https→wss).
+export const GATEWAY_BASE_URL =
+  import.meta.env.VITE_GATEWAY_URL || "http://localhost:8080";
+export const GATEWAY_WS_URL = GATEWAY_BASE_URL.replace(/^http/, "ws");
 
 // ── Microservices URLs (via API Gateway) ────────────────────────────────
 export const AUTH_API_URL = `${GATEWAY_BASE_URL}/api/auth-service`;
