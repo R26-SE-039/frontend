@@ -16,6 +16,7 @@ import FailureDetailsPage from "./pages/FailureDetailsPage";
 import HealingActionsPage from "./pages/HealingActionsPage";
 import RepairHistoryPage from "./pages/RepairHistoryPage";
 import SelfHealingAnalyticsPage from "./pages/SelfHealingAnalyticsPage";
+import SelfHealingNotificationsPage from "./pages/SelfHealingNotificationsPage";
 import TestCaseStoriesPage from "./pages/TestCaseStoriesPage";
 import TestCaseGherkinPage from "./pages/TestCaseGherkinPage";
 import TestCaseAgentExplorerPage from "./pages/TestCaseAgentExplorerPage";
@@ -192,6 +193,14 @@ function App() {
             element={
               <SelfHealingRoute title="Analytics">
                 <SelfHealingAnalyticsPage />
+              </SelfHealingRoute>
+            }
+          />
+          <Route
+            path="/self-healing/notifications"
+            element={
+              <SelfHealingRoute title="Notifications">
+                <SelfHealingNotificationsPage />
               </SelfHealingRoute>
             }
           />

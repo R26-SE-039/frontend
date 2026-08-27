@@ -112,6 +112,12 @@ export const selfHealingLinks = [
     icon: <ClipboardList size={18} />,
   },
   {
+    label: "Notifications",
+    description: "Review project-scoped recovery alerts and next actions.",
+    path: "/self-healing/notifications",
+    icon: <Bell size={18} />,
+  },
+  {
     label: "Analytics",
     description: "Explore flaky-test risk and self-healing quality signals.",
     path: "/self-healing/analytics",
@@ -547,6 +553,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
             <button
               type="button"
+              onClick={() => activeView === "self-healing" && navigate("/self-healing/notifications")}
+              aria-label="Open notifications"
+              title={activeView === "self-healing" ? "Open Self Healing notifications" : "Notifications"}
               className="p-2.5 text-slate-400 hover:text-slate-900 transition-colors relative"
             >
               <Bell size={20} />

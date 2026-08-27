@@ -1,11 +1,46 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type React from "react";
-import { Upload, PlusCircle, Layout, Code2, AlertTriangle, Activity, ShieldCheck, Award, ExternalLink, GitBranch, Wrench, FileCode2, CheckCircle2, Send, Play } from "lucide-react";
+import { Upload, PlusCircle, Layout, Code2, AlertTriangle, Activity, ShieldCheck, Award, ExternalLink, GitBranch, Wrench, FileCode2, CheckCircle2, Send, Play, RefreshCw, Clock } from "lucide-react";
 import { failureAnalysisApi } from "../api/failureAnalysisApi";
+import { useMeetingStore } from "../store/useMeetingStore";
+import type { GitHubAnalyzeFailureResponse, GitHubWorkflowJob, GitHubWorkflowRun, GitHubRunDetailsResponse } from "../types/selfHealing";
 import { actionTargetLabel, canShowControlledRepair, shouldShowActionGuidance } from "../utils/repairUiPolicy";
 
 
 type PipelineResult = {
+  source?: "github_actions" | "manual" | string;
+  github?: {
+    repository?: string | null;
+    run_id?: number | null;
+    job_id?: number | null;
+    run_url?: string | null;
+    head_sha?: string | null;
+    head_branch?: string | null;
+  } | null;
+  evidence?: {
+    error_type?: string | null;
+    error_message?: string | null;
+    candidate_file?: string | null;
+    candidate_line?: number | null;
+    sanitized_log_excerpt?: string | null;
+  } | null;
+  saved_to_db?: boolean;
+  failure?: {
+    test_id?: string | null;
+    status?: string | null;
+  } | null;
+  classification?: {
+    root_cause?: string | null;
+    confidence?: number | null;
+    decision_source?: string | null;
+    all_probabilities?: Record<string, number> | null;
+  } | null;
+  healing?: {
+    selected_action?: string | null;
+    recommendation?: string | null;
+    automatic_execution_allowed?: boolean | null;
+  } | null;
+  repair?: PipelineResult["pipeline"]["repair"] | null;
   test_id: string;
   status: string;
   pipeline: {
@@ -173,12 +208,22 @@ const ROOT_CAUSE_COLORS: Record<string, string> = {
 };
 
 export default function SubmitPage() {
-  const [tab, setTab] = useState<"manual" | "upload">("manual");
+  const [tab, setTab] = useState<"github" | "manual" | "upload">("github");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [failedRuns, setFailedRuns] = useState<GitHubWorkflowRun[]>([]);
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [runDetails, setRunDetails] = useState<GitHubRunDetailsResponse | null>(null);
+  const [runDetailsLoading, setRunDetailsLoading] = useState(false);
+  const [runDetailsError, setRunDetailsError] = useState<string | null>(null);
+  const [analyzingJobId, setAnalyzingJobId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const organizationId = useMeetingStore((state) => state.user?.organizationId);
+  const projectId = useMeetingStore((state) => state.currentProject?.id);
 
   // Form state
   const [form, setForm] = useState({
@@ -262,6 +307,83 @@ export default function SubmitPage() {
     },
     [processFile]
   );
+  const loadFailedRuns = useCallback(async () => {
+    if (!organizationId || !projectId) {
+      setFailedRuns([]);
+      setRunsError("Select a project before loading failed CI runs.");
+      return;
+    }
+
+    setRunsLoading(true);
+    setRunsError(null);
+    setSelectedRunId(null);
+    setRunDetails(null);
+    setRunDetailsError(null);
+    setResult(null);
+    setError(null);
+
+    try {
+      const data = await failureAnalysisApi.fetchGithubFailedRuns();
+      setFailedRuns(data.runs ?? []);
+    } catch (e: unknown) {
+      setFailedRuns([]);
+      setRunsError(formatGithubFlowError(e));
+    } finally {
+      setRunsLoading(false);
+    }
+  }, [organizationId, projectId]);
+
+  const loadRunDetails = async (run: GitHubWorkflowRun) => {
+    setSelectedRunId(run.run_id);
+    setRunDetails(null);
+    setRunDetailsError(null);
+    setError(null);
+    setResult(null);
+    setRunDetailsLoading(true);
+
+    try {
+      const data = await failureAnalysisApi.fetchGithubRunDetails(run.run_id);
+      setRunDetails(data);
+    } catch (e: unknown) {
+      setRunDetailsError(formatGithubFlowError(e));
+    } finally {
+      setRunDetailsLoading(false);
+    }
+  };
+
+  const analyzeFailedJob = async (runId: number, job: GitHubWorkflowJob) => {
+    if (job.conclusion !== "failure") {
+      setRunDetailsError("Only failed jobs can be analyzed as failures.");
+      return;
+    }
+
+    setAnalyzingJobId(job.job_id);
+    setError(null);
+    setRunDetailsError(null);
+    setResult(null);
+
+    try {
+      const data = await failureAnalysisApi.analyzeGithubFailedJob<GitHubAnalyzeFailureResponse>(runId, job.job_id);
+      setResult(normalizeGithubAnalyzeResult(data));
+    } catch (e: unknown) {
+      setRunDetailsError(formatGithubFlowError(e));
+    } finally {
+      setAnalyzingJobId(null);
+    }
+  };
+
+  useEffect(() => {
+    setFailedRuns([]);
+    setRunsError(null);
+    setSelectedRunId(null);
+    setRunDetails(null);
+    setRunDetailsError(null);
+    setResult(null);
+    setError(null);
+    if (tab === "github") {
+      void loadFailedRuns();
+    }
+  }, [organizationId, projectId, tab, loadFailedRuns]);
 
   return (
     <div className="space-y-8">
@@ -273,32 +395,42 @@ export default function SubmitPage() {
       </div>
 
       {/* ── Tab bar ──────────────────────────────────────────────────────────── */}
-      <div className="flex gap-2 rounded-2xl bg-[var(--card-2)] p-1 w-fit border border-[var(--border)]/60 shadow-sm">
-        {(["manual", "upload"] as const).map((t) => (
+      <div className="flex flex-wrap gap-2 rounded-2xl bg-[var(--card-2)] p-1 w-fit border border-[var(--border)]/60 shadow-sm">
+        {([
+          { id: "github", label: "Failed CI Runs", icon: <GitBranch size={15} /> },
+          { id: "manual", label: "Advanced Manual", icon: <PlusCircle size={15} /> },
+          { id: "upload", label: "Artifact File Drop", icon: <Upload size={15} /> },
+        ] as const).map((item) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={item.id}
+            onClick={() => setTab(item.id)}
             className={`rounded-xl px-6 py-2.5 text-xs font-bold transition flex items-center gap-2 ${
-              tab === t
+              tab === item.id
                 ? "bg-indigo-600 text-white shadow-sm"
                 : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-white/40"
             }`}
           >
-            {t === "manual" ? (
-              <>
-                <PlusCircle size={15} />
-                Manual Parameters
-              </>
-            ) : (
-              <>
-                <Upload size={15} />
-                Artifact File Drop
-              </>
-            )}
+            {item.icon}
+            {item.label}
           </button>
         ))}
       </div>
 
+      {tab === "github" && (
+        <GithubFailedRunsPanel
+          runs={failedRuns}
+          loading={runsLoading}
+          error={runsError}
+          selectedRunId={selectedRunId}
+          runDetails={runDetails}
+          runDetailsLoading={runDetailsLoading}
+          runDetailsError={runDetailsError}
+          analyzingJobId={analyzingJobId}
+          onRefresh={loadFailedRuns}
+          onSelectRun={loadRunDetails}
+          onAnalyzeJob={analyzeFailedJob}
+        />
+      )}
       {/* ── File Upload Tab ───────────────────────────────────────────────────── */}
       {tab === "upload" && (
         <div
@@ -458,6 +590,7 @@ export default function SubmitPage() {
       )}
 
       {/* ── Submit button ─────────────────────────────────────────────────────── */}
+      {tab !== "github" && (
       <button
         onClick={submitForm}
         disabled={loading}
@@ -472,6 +605,7 @@ export default function SubmitPage() {
           <><Play size={15} /> Run Failure Analysis</>
         )}
       </button>
+      )}
 
       {/* ── Result ───────────────────────────────────────────────────────────── */}
       {result && <AnalysisResult result={result} />}
@@ -481,6 +615,301 @@ export default function SubmitPage() {
 
 /* ── Sub-components ──────────────────────────────────────────────────────────── */
 
+function normalizeGithubAnalyzeResult(response: GitHubAnalyzeFailureResponse): PipelineResult {
+  const analysis = response.analysis as Partial<PipelineResult> | null | undefined;
+  if (!analysis?.pipeline) {
+    throw new Error("GitHub analysis response did not include analysis pipeline data.");
+  }
+
+  return {
+    ...analysis,
+    source: response.source,
+    github: response.github,
+    evidence: response.evidence,
+    failure: response.failure,
+    classification: response.classification,
+    healing: response.healing,
+    repair: (response.repair as PipelineResult["pipeline"]["repair"] | null | undefined) ?? analysis.pipeline.repair ?? null,
+    saved_to_db: Boolean((analysis as { saved_to_db?: boolean }).saved_to_db),
+    test_id: analysis.test_id || response.failure?.test_id || "Unknown failure",
+    status: analysis.status || response.failure?.status || "FAIL",
+    pipeline: {
+      ...analysis.pipeline,
+      classification: {
+        ...analysis.pipeline.classification,
+        ...response.classification,
+        all_probabilities:
+          response.classification?.all_probabilities ||
+          analysis.pipeline.classification?.all_probabilities ||
+          {},
+      },
+      healing: {
+        ...analysis.pipeline.healing,
+        ...response.healing,
+      },
+      repair: (response.repair as PipelineResult["pipeline"]["repair"] | null | undefined) ?? analysis.pipeline.repair ?? null,
+    },
+  } as PipelineResult;
+}
+function GithubFailedRunsPanel({
+  runs,
+  loading,
+  error,
+  selectedRunId,
+  runDetails,
+  runDetailsLoading,
+  runDetailsError,
+  analyzingJobId,
+  onRefresh,
+  onSelectRun,
+  onAnalyzeJob,
+}: {
+  runs: GitHubWorkflowRun[];
+  loading: boolean;
+  error: string | null;
+  selectedRunId: number | null;
+  runDetails: GitHubRunDetailsResponse | null;
+  runDetailsLoading: boolean;
+  runDetailsError: string | null;
+  analyzingJobId: number | null;
+  onRefresh: () => void;
+  onSelectRun: (run: GitHubWorkflowRun) => void;
+  onAnalyzeJob: (runId: number, job: GitHubWorkflowJob) => void;
+}) {
+  const failedJobs = runDetails?.failed_jobs ?? [];
+  const currentRun = runDetails?.run;
+
+  return (
+    <section className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border)] pb-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--muted)] flex items-center gap-2">
+              <GitBranch size={14} className="text-indigo-600" />
+              Failed CI Runs
+            </p>
+            <h3 className="mt-1 text-lg font-extrabold tracking-tight text-[var(--foreground)]">
+              Project GitHub Actions failures
+            </h3>
+            <p className="mt-1 max-w-2xl text-xs font-medium text-[var(--muted)]">
+              Uses the selected project's GitHub configuration. Repository credentials and job logs stay server-side.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-4 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
+
+        {error && <InlineAlert message={error} />}
+
+        {loading && (
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs font-bold text-slate-600">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+            Loading failed workflow runs...
+          </div>
+        )}
+
+        {!loading && !error && runs.length === 0 && (
+          <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 p-5 text-sm font-bold text-emerald-800">
+            No failed GitHub Actions runs were found for this project.
+          </div>
+        )}
+
+        <div className="mt-5 space-y-3">
+          {runs.map((run) => {
+            const selected = selectedRunId === run.run_id;
+            return (
+              <button
+                key={run.run_id}
+                type="button"
+                onClick={() => onSelectRun(run)}
+                className={`w-full rounded-xl border p-4 text-left transition ${
+                  selected
+                    ? "border-indigo-300 bg-indigo-50 shadow-sm"
+                    : "border-[var(--border)] bg-white hover:border-indigo-200 hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-slate-900">
+                      {run.display_title || run.name || "GitHub Actions workflow"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
+                        <GitBranch size={12} /> {run.head_branch || "unknown branch"}
+                      </span>
+                      <span className="rounded-lg border border-red-100 bg-red-50 px-2 py-1 text-red-700">
+                        {run.conclusion || run.status || "failure"}
+                      </span>
+                      {run.run_number && <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">Run #{run.run_number}</span>}
+                      {run.run_attempt && <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">Attempt {run.run_attempt}</span>}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="font-mono text-[11px] font-bold text-slate-500">{shortSha(run.head_sha)}</span>
+                    {run.html_url && (
+                      <a
+                        href={run.html_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        className="rounded-lg border border-slate-200 bg-white p-2 text-indigo-600 hover:bg-indigo-50"
+                        aria-label="Open GitHub Actions run"
+                        title="Open GitHub Actions run"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-[var(--muted)]">
+                  <Clock size={12} /> Updated {formatDateTime(run.updated_at || run.created_at)}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+        <div className="border-b border-[var(--border)] pb-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-[var(--muted)] flex items-center gap-2">
+            <Activity size={14} className="text-indigo-600" />
+            Failed Jobs
+          </p>
+          <h3 className="mt-1 text-lg font-extrabold tracking-tight text-[var(--foreground)]">
+            Select one job to analyze
+          </h3>
+          <p className="mt-1 text-xs font-medium text-[var(--muted)]">
+            Analysis downloads sanitized evidence on the backend and persists the normal Component 3 result.
+          </p>
+        </div>
+
+        {!selectedRunId && (
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-600">
+            Select a failed workflow run to view failed jobs.
+          </div>
+        )}
+
+        {runDetailsLoading && (
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs font-bold text-slate-600">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+            Loading failed jobs...
+          </div>
+        )}
+
+        {runDetailsError && <InlineAlert message={runDetailsError} />}
+
+        {currentRun && (
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+            <p className="font-extrabold text-slate-900">{currentRun.name || currentRun.display_title || "Workflow run"}</p>
+            <div className="mt-2 grid gap-2 font-bold sm:grid-cols-2">
+              <span>Repository: {runDetails?.repository}</span>
+              <span>Branch: {currentRun.head_branch || "unknown"}</span>
+              <span>Run ID: {currentRun.run_id}</span>
+              <span>SHA: {shortSha(currentRun.head_sha)}</span>
+            </div>
+          </div>
+        )}
+
+        {!runDetailsLoading && currentRun && failedJobs.length === 0 && (
+          <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 p-5 text-sm font-bold text-amber-800">
+            No failed jobs were found for this workflow run.
+          </div>
+        )}
+
+        <div className="mt-5 space-y-3">
+          {failedJobs.map((job) => {
+            const failedSteps = (job.steps ?? []).filter((step) => step.conclusion === "failure");
+            const analyzing = analyzingJobId === job.job_id;
+            return (
+              <article key={job.job_id} className="rounded-xl border border-[var(--border)] bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-slate-900">{job.name || `Job ${job.job_id}`}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold">
+                      <span className="rounded-lg border border-red-100 bg-red-50 px-2 py-1 text-red-700">{job.conclusion || job.status || "failure"}</span>
+                      <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-slate-500">Job {job.job_id}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => currentRun && onAnalyzeJob(currentRun.run_id, job)}
+                    disabled={analyzing || job.conclusion !== "failure"}
+                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {analyzing ? (
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Play size={15} />
+                    )}
+                    {analyzing ? "Analyzing failure..." : "Analyze Failure"}
+                  </button>
+                </div>
+                {failedSteps.length > 0 && (
+                  <div className="mt-3 space-y-1 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--muted)]">Failed steps</p>
+                    {failedSteps.map((step) => (
+                      <p key={`${job.job_id}-${step.number}-${step.name}`} className="text-xs font-bold text-slate-700">
+                        {step.number ? `${step.number}. ` : ""}{step.name || "Unnamed step"}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function InlineAlert({ message }: { message: string }) {
+  return (
+    <div className="mt-5 rounded-xl border border-red-500/20 bg-red-50 p-4 text-xs font-bold text-red-700 flex items-start gap-2">
+      <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function formatGithubFlowError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "Unknown error";
+  if (/Authorization is required|401|unauthorized|session/i.test(message)) {
+    return "Your session could not be authorized. Please sign in again and retry.";
+  }
+  if (/403|forbidden|access denied/i.test(message)) {
+    return "GitHub or project access was denied for this project.";
+  }
+  if (/404|not found/i.test(message)) {
+    return "The GitHub run, job, or project configuration could not be found.";
+  }
+  if (/repair branch|recursive controlled-repair|auto-heal/i.test(message)) {
+    return "This run belongs to a Component 3 repair branch and is excluded from recursive repair analysis.";
+  }
+  if (/configuration|repository URL|PAT|token/i.test(message)) {
+    return "GitHub configuration must be added to the selected project before failed CI runs can be analyzed.";
+  }
+  return message;
+}
+
+function formatDateTime(value?: string | null): string {
+  if (!value) return "unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function shortSha(value?: string | null): string {
+  return value ? value.slice(0, 7) : "unknown";
+}
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
@@ -494,26 +923,82 @@ const inputCls =
   "w-full rounded-xl border border-[var(--border)] bg-[var(--card-2)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] outline-none focus:border-indigo-400 focus:bg-white transition duration-150";
 
 function AnalysisResult({ result }: { result: PipelineResult }) {
-  const {
-    classification: cls,
-    source_run: sourceRun,
-    healing,
-    healing_plan: plan,
-    flaky_analysis: flaky,
-    notification,
-    repair,
-  } = result.pipeline;
-  const rcColor = ROOT_CAUSE_COLORS[cls.root_cause] ?? "text-gray-600 bg-gray-50 border-gray-100";
+  const pipeline = result.pipeline;
+  if (!pipeline) {
+    return <InlineAlert message="Analysis completed, but the response did not include renderable pipeline data." />;
+  }
+
+  const cls = pipeline.classification ?? result.classification ?? {
+    root_cause: "other_or_unknown",
+    confidence: 0,
+    all_probabilities: {},
+    model_used: "classifier",
+  };
+  const sourceRun = pipeline.source_run ?? null;
+  const healing = pipeline.healing ?? {
+    healing_id: "",
+    repair_type: result.healing?.selected_action || "Manual Review",
+    old_value: "",
+    new_value: "",
+    recommendation: result.healing?.recommendation || "No recovery recommendation was returned.",
+    status: "Suggested",
+    developer_alert: false,
+    selected_action: result.healing?.selected_action || "manual_review",
+    automatic_execution_allowed: false,
+  };
+  const plan = pipeline.healing_plan ?? {
+    root_cause: cls.root_cause || "other_or_unknown",
+    confidence: (cls.confidence || 0) * 100,
+    decision_source: cls.decision_source || "machine_learning",
+    action: result.healing?.selected_action || healing.selected_action || "manual_review",
+    automatic_healing_allowed: false,
+    automatic_execution_allowed: false,
+    requires_validation: false,
+    confidence_gate_applied: false,
+    automation_level: "manual_review",
+    allowed_to_plan: Boolean(result.repair?.eligible),
+    allowed_to_publish: false,
+    recommended_action: result.healing?.recommendation || "Review the failure analysis result.",
+    notification_required: false,
+    target_team_or_module: "Manual Review",
+    history_status: "suggested",
+    validation_guidance: [],
+    github_changes_made: false,
+  };
+  const flaky = pipeline.flaky_analysis ?? {
+    is_flaky: false,
+    flaky_probability: 0,
+    risk_level: "Low",
+    instability_score: "0%",
+    recent_pattern: "PASS",
+  };
+  const notification = pipeline.notification ?? null;
+  const repair = result.repair ?? pipeline.repair ?? null;
+  const probabilities = cls.all_probabilities ?? {};
+  const validationGuidance = plan.validation_guidance ?? [];
+  const rcColor = ROOT_CAUSE_COLORS[cls.root_cause || "other_or_unknown"] ?? "text-gray-600 bg-gray-50 border-gray-100";
   const mlConfidence = cls.ml_confidence ?? cls.confidence;
   const decisionSource = cls.decision_source || plan?.decision_source || "machine_learning";
   const decisionReason = cls.decision_reason || plan?.decision_reason;
   const detected = cls.detected_error;
+  const githubSource = result.github;
+  const evidence = result.evidence;
+  const sourceRepository = githubSource?.repository || sourceRun?.repository_full_name;
+  const sourceBranch = githubSource?.head_branch || sourceRun?.head_branch;
+  const sourceSha = githubSource?.head_sha || sourceRun?.head_sha;
+  const sourceRunId = githubSource?.run_id || sourceRun?.run_id;
+  const sourceRunUrl = githubSource?.run_url || sourceRun?.run_url;
+  const sourceJobId = githubSource?.job_id;
+  const candidateFile = evidence?.candidate_file || detected?.failed_file;
+  const candidateLine = evidence?.candidate_line ?? detected?.failed_line;
+  const evidenceErrorType = evidence?.error_type || detected?.error_type;
+  const evidenceErrorMessage = evidence?.error_message || detected?.error_message;
   const detectedEvidence = detected?.failed_file && detected.failed_file !== "unknown"
     ? `${detected.error_type || "Error"} in ${detected.failed_file}${detected.failed_line && detected.failed_line !== "unknown" ? `:${detected.failed_line}` : ""}`
     : detected?.error_type;
   const nonApplicationAction = shouldShowActionGuidance(cls.root_cause);
   const repairMode = nonApplicationAction
-    ? plan.automation_level.replace(/_/g, " ")
+    ? (plan.automation_level || "manual_review").replace(/_/g, " ")
     : plan?.automatic_execution_allowed
     ? "Controlled Draft PR"
     : plan?.automatic_healing_allowed || plan?.requires_validation
@@ -529,13 +1014,62 @@ function AnalysisResult({ result }: { result: PipelineResult }) {
 
   return (
     <div className="space-y-6 pt-2">
-      <div className="flex items-center gap-3 border-b border-[var(--border)] pb-4">
+      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] pb-4">
         <h3 className="text-lg font-extrabold tracking-tight text-[var(--foreground)]">Analysis Completed</h3>
         <span className="rounded-full bg-emerald-50 border border-emerald-100/50 px-3 py-1 text-xs font-bold text-emerald-700 font-mono shadow-sm">
-          ✓ {result.test_id}
+          Saved {result.test_id}
         </span>
+        {repair?.eligible && (
+          <span className="rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1 text-xs font-extrabold text-indigo-700 shadow-sm">
+            Controlled Repair Available
+          </span>
+        )}
       </div>
 
+      {(sourceRepository || candidateFile || evidenceErrorMessage) && (
+        <section className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5 shadow-sm">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-indigo-700 flex items-center gap-2">
+                <GitBranch size={14} /> GitHub Source
+              </p>
+              <div className="mt-3 grid gap-2 text-xs font-bold text-slate-700 sm:grid-cols-2">
+                <span className="break-all">Repository: {sourceRepository || "unknown"}</span>
+                <span>Branch: {sourceBranch || "unknown"}</span>
+                <span>Run ID: {sourceRunId || "unknown"}</span>
+                <span>Job ID: {sourceJobId || "unknown"}</span>
+                <span>SHA: {shortSha(sourceSha)}</span>
+                <span>Status: {result.status}</span>
+              </div>
+              {sourceRunUrl && (
+                <a
+                  href={sourceRunUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50"
+                >
+                  Open GitHub Run <ExternalLink size={13} />
+                </a>
+              )}
+            </div>
+            <div className="rounded-xl border border-white bg-white/80 p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Evidence Preview</p>
+              <div className="mt-3 space-y-2 text-xs text-slate-700">
+                {evidenceErrorType && <p><span className="font-extrabold">Error type:</span> {evidenceErrorType}</p>}
+                {evidenceErrorMessage && <p><span className="font-extrabold">Message:</span> {evidenceErrorMessage}</p>}
+                {candidateFile && (
+                  <p className="break-all font-mono">
+                    {candidateFile}{candidateLine ? `:${candidateLine}` : ""}
+                  </p>
+                )}
+                {!evidenceErrorType && !evidenceErrorMessage && !candidateFile && (
+                  <p className="font-medium text-[var(--muted)]">No specific source location was extracted.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
       <div className="grid gap-6 xl:grid-cols-3">
         {/* Classification */}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 space-y-4 shadow-sm relative overflow-hidden flex flex-col justify-between">
@@ -547,7 +1081,7 @@ function AnalysisResult({ result }: { result: PipelineResult }) {
             </p>
             <div className="pt-1">
               <span className={`inline-flex rounded-xl border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${rcColor}`}>
-                {cls.root_cause.replace(/_/g, " ")}
+                {(cls.root_cause || "other_or_unknown").replace(/_/g, " ")}
               </span>
             </div>
             <p className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{(mlConfidence * 100).toFixed(1)}%</p>
@@ -560,7 +1094,7 @@ function AnalysisResult({ result }: { result: PipelineResult }) {
             </div>
           </div>
           <div className="space-y-2 pt-3 border-t border-[var(--border)]">
-            {Object.entries(cls.all_probabilities)
+            {Object.entries(probabilities)
               .sort(([, a], [, b]) => b - a)
               .map(([label, prob]) => (
                 <div key={label} className="flex items-center gap-2">
@@ -607,7 +1141,7 @@ function AnalysisResult({ result }: { result: PipelineResult }) {
                   <div className="min-w-0 space-y-1">
                     <p className="font-bold truncate">{sourceRun.repository_full_name}</p>
                     <p className="font-mono text-[var(--muted)]">
-                      {sourceRun.head_branch} at {sourceRun.head_sha.slice(0, 7)}
+                      {sourceRun.head_branch} at {shortSha(sourceRun.head_sha)}
                     </p>
                     <p className="font-medium text-[var(--muted)]">
                       Run {sourceRun.run_id} - {sourceRun.conclusion || sourceRun.status || "unknown"}
@@ -705,7 +1239,7 @@ function AnalysisResult({ result }: { result: PipelineResult }) {
             <Send size={18} className="mt-0.5 shrink-0 text-cyan-700" />
             <div>
               <p className="text-sm font-extrabold capitalize text-cyan-950">
-                {plan.automation_level.replace(/_/g, " ")}
+                {(plan.automation_level || "manual_review").replace(/_/g, " ")}
               </p>
               <p className="mt-1 text-sm font-bold text-cyan-800">
                 {actionTargetLabel(
@@ -717,15 +1251,15 @@ function AnalysisResult({ result }: { result: PipelineResult }) {
                 {notification?.message || plan.recommended_action}
               </p>
               <p className="mt-2 text-xs font-bold capitalize text-slate-700">
-                Status: {plan.history_status.replace(/_/g, " ")}
+                Status: {(plan.history_status || "suggested").replace(/_/g, " ")}
               </p>
-              {plan.validation_guidance.length > 0 && (
+              {validationGuidance.length > 0 && (
                 <div className="mt-3">
                   <p className="text-[10px] font-extrabold uppercase text-slate-600">
                     Validation guidance
                   </p>
                   <ul className="mt-1 space-y-1 text-xs text-slate-700">
-                    {plan.validation_guidance.map((guidance) => (
+                    {validationGuidance.map((guidance) => (
                       <li key={guidance} className="font-mono">{guidance}</li>
                     ))}
                   </ul>
