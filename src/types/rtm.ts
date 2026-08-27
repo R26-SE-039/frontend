@@ -122,6 +122,8 @@ export interface ProjectSettingsOut {
   project_name: string;
   project_manager: string;
   project_description: string;
+  component2_project_id: string | null;
+  component1_iteration_id: string | null;
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────
@@ -130,6 +132,18 @@ export interface TrendPoint {
   date: string;
   avg_quality: number;
   avg_coverage: number;
+}
+
+export interface QualityBucket {
+  label: string;
+  tests: number;
+}
+
+export interface ActivityOut {
+  activity_type: string;
+  title: string;
+  detail: string;
+  created_at: string;
 }
 
 export interface DashboardSummaryOut {
@@ -141,6 +155,95 @@ export interface DashboardSummaryOut {
   trend: TrendPoint[];
   requirements_covered: number;
   requirements_total: number;
+  quality_distribution: QualityBucket[];
+  recent_activities: ActivityOut[];
+}
+
+// ── ML model info (research / viva-facing panel) ───────────────────────
+
+export interface FeatureImportanceOut {
+  feature: string;
+  label: string;
+  importance: number;
+  formula_weight: number;
+  coefficient: number | null;
+}
+
+export interface ModelComparisonEntry {
+  model: string;
+  cv_mae_mean: number;
+  cv_mae_std: number;
+}
+
+export interface ClassificationMetricsOut {
+  task: string;
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  confusion_matrix: number[][];
+  confusion_matrix_labels: string[];
+}
+
+export interface ModelInfoOut {
+  trained: boolean;
+  algorithm: string;
+  hyperparameters: Record<string, unknown>;
+  model_comparison: ModelComparisonEntry[];
+  dataset_path: string;
+  training_samples: number;
+  test_samples: number;
+  mae: number;
+  rmse: number;
+  r2: number;
+  cv_mae_mean: number;
+  cv_mae_std: number;
+  feature_importances: FeatureImportanceOut[];
+  quality_reject_threshold: number;
+  classification_metrics: ClassificationMetricsOut | null;
+  trained_at: string | null;
+  notes: string;
+}
+
+// ── Dataset info (EDA panel) ────────────────────────────────────────────
+
+export interface FeatureStatOut {
+  feature: string;
+  label: string;
+  mean: number;
+  std: number;
+  min: number;
+  max: number;
+  correlation_with_target: number;
+}
+
+export interface CategoryCountOut {
+  label: string;
+  count: number;
+}
+
+export interface ExcludedFeatureOut {
+  feature: string;
+  correlation_with_target: number;
+  note: string;
+}
+
+export interface DatasetInfoOut {
+  available: boolean;
+  source: string;
+  n_rows: number;
+  n_features_used: number;
+  missing_values: number;
+  target_mean: number;
+  target_std: number;
+  target_min: number;
+  target_max: number;
+  reject_rate: number;
+  feature_stats: FeatureStatOut[];
+  excluded_feature_correlation: ExcludedFeatureOut | null;
+  quality_label_distribution: CategoryCountOut[];
+  test_type_distribution: CategoryCountOut[];
+  module_criticality_distribution: CategoryCountOut[];
 }
 
 // ── GitHub code & branch coverage ─────────────────────────────────────
@@ -184,4 +287,190 @@ export interface GithubConnectionStatusOut {
   connected: boolean;
   reason: string | null;
   username: string | null;
+}
+
+// ── Component 2 test-case quality (Random Forest research pipeline) ────
+
+export interface C2QualityFeaturesOut {
+  test_case: string;
+  description_length: number;
+  has_expected_result: number;
+  has_preconditions: number;
+  has_test_steps: number;
+  requirement_linked: number;
+  requirement_coverage: number;
+  ambiguity_score: number;
+  completeness_score: number;
+  specificity_score: number;
+  test_result: number;
+}
+
+export interface C2QualityPredictionOut {
+  test_case_id: string;
+  title: string;
+  story_id: string;
+  status: string;
+  features: C2QualityFeaturesOut;
+  quality_score: number;
+  formula_label: string;
+  predicted_label: string;
+  probabilities: Record<string, number>;
+  method: string;
+}
+
+export interface C2QualityFeatureImportanceOut {
+  feature: string;
+  label: string;
+  importance: number;
+}
+
+export interface C2QualityPerClassMetricOut {
+  label: string;
+  precision: number;
+  recall: number;
+  f1: number;
+  support: number;
+}
+
+export interface C2QualityModelInfoOut {
+  trained: boolean;
+  algorithm: string;
+  hyperparameters: Record<string, unknown>;
+  dataset_path: string;
+  label_order: string[];
+  training_samples: number;
+  test_samples: number;
+  cv_accuracy_mean: number;
+  cv_accuracy_std: number;
+  accuracy: number;
+  precision_macro: number;
+  recall_macro: number;
+  f1_macro: number;
+  per_class_metrics: C2QualityPerClassMetricOut[];
+  confusion_matrix: number[][];
+  confusion_matrix_labels: string[];
+  feature_importances: C2QualityFeatureImportanceOut[];
+  trained_at: string | null;
+  notes: string;
+}
+
+export interface C2QualityDatasetInfoOut {
+  available: boolean;
+  n_rows: number;
+  label_distribution: CategoryCountOut[];
+  feature_stats: FeatureStatOut[];
+}
+
+// ── Component 2 (Intelligent-Test-Case-Generation) integration ─────────
+
+export interface C2StatusOut {
+  connected: boolean;
+  base_url: string;
+}
+
+export interface C2ProjectOut {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string | null;
+}
+
+export interface C2TestSuiteOut {
+  id: string;
+  project_id: string;
+  framework: string;
+  language: string;
+  filename: string;
+  code: string;
+  mode: string;
+  url: string;
+  version: number;
+  is_active: boolean;
+  is_stale: boolean;
+  selected_for_run: boolean;
+  updated_at: string | null;
+}
+
+export interface C2RunOut {
+  id: string;
+  project_id: string;
+  suite_id: string | null;
+  framework: string;
+  mode: string;
+  status: string;
+  github_run_url: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  total_count: number;
+  passed_count: number;
+  failed_count: number;
+  log_url: string;
+  error_message: string | null;
+}
+
+export interface C2RiskPredictionOut {
+  flow: string;
+  label: string;
+  risk: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+}
+
+export interface C2RiskResponseOut {
+  project_id: string;
+  source: string;
+  predictions: C2RiskPredictionOut[];
+}
+
+export interface C2FailedTestOut {
+  test_name: string;
+  pipeline: string;
+  error_message: string;
+  failure_type: string;
+  framework: string | null;
+  executed_at: string | null;
+}
+
+export interface C2FailedTestsResponseOut {
+  project_id: string;
+  total: number;
+  failures: C2FailedTestOut[];
+}
+
+export interface C1RequirementWithStoryOut {
+  requirement_id: string;
+  requirement_text: string;
+  requirement_type: string;
+  requirement_status: string;
+  meeting_title: string | null;
+  user_story_id: string;
+  user_story_title: string;
+  user_story_text: string;
+  priority: string;
+  user_story_status: string | null;
+  acceptance_criteria: string[];
+}
+
+/** One test case sourced from Component 2's traceability endpoint, carrying
+ * its owning user story's id so it can be joined to Component 1's
+ * requirements-with-stories by user_story_id. */
+export interface C2GherkinTestCaseOut {
+  story_id: string;
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+}
+
+/** One flattened scenario result assembled from recent C2 execution runs. */
+export interface C2TestCaseOut {
+  id: string;
+  title: string;
+  status: string;
+  framework: string;
+  duration_ms: number | null;
+  error_message: string | null;
+  executed_at: string | null;
+  fail_rate: number;
 }
