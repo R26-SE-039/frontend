@@ -1,322 +1,275 @@
-import {
-  BarChart3,
-  Bug,
-  CheckCircle2,
-  Clock,
-  FileText,
-  ListChecks,
-  Plus,
-  RefreshCw,
-  Sparkles,
-  XCircle,
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { getProjectSettings, getRTM, regenerateRTM, updateProjectSettings } from '../api/rtmApi';
-import AddMatrixRecordModal from '../components/rtm/AddMatrixRecordModal';
-import type { ProjectSettingsOut, RTMRequirementEntry, RTMTestEntry, TestStatus } from '../types/rtm';
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Download, GitBranch, Layers, RefreshCw } from "lucide-react";
+import { rtmApi } from "../api/rtmApi";
+import RtmPill from "../components/rtm/RtmPill";
+import RtmStatCard from "../components/rtm/RtmStatCard";
+import { RtmEmptyState, RtmErrorBanner, RtmSpinner } from "../components/rtm/RtmPageState";
+import { useRtmContext } from "../components/rtm/useRtmContext";
+import type { Matrix, MatrixRow } from "../types/rtm";
 
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  accent: { border: string; bg: string; text: string };
-}
-
-function StatCard({ label, value, icon: Icon, accent }: StatCardProps) {
-  return (
-    <div className={`flex items-center gap-4 rounded-2xl border-l-4 bg-white p-5 shadow-sm ${accent.border}`}>
-      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${accent.bg}`}>
-        <Icon size={18} className={accent.text} />
-      </span>
-      <div>
-        <p className="text-sm text-slate-500">{label}</p>
-        <p className="text-xl font-bold text-[#1e1b4b]">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function TestStatusBadge({ status }: { status: TestStatus }) {
-  if (status === 'approved')
-    return (
-      <span className="inline-flex items-center gap-1 text-green-600">
-        <CheckCircle2 size={16} /> Pass
-      </span>
-    );
-  if (status === 'rejected')
-    return (
-      <span className="inline-flex items-center gap-1 text-red-600">
-        <XCircle size={16} /> Fail
-      </span>
-    );
-  return (
-    <span className="inline-flex items-center gap-1 text-slate-400">
-      <Clock size={16} /> Pending
-    </span>
-  );
-}
-
-interface FlatRow {
-  req: RTMRequirementEntry;
-  test: RTMTestEntry | null;
-}
-
-function flattenRows(requirements: RTMRequirementEntry[]): FlatRow[] {
-  const rows: FlatRow[] = [];
-  for (const r of requirements) {
-    const tests = r.acceptance_criteria.flatMap((ac) => ac.tests);
-    if (tests.length === 0) {
-      rows.push({ req: r, test: null });
-    } else {
-      for (const t of tests) rows.push({ req: r, test: t });
-    }
-  }
-  return rows;
-}
+const shortId = (id: string) => id.slice(0, 8).toUpperCase();
 
 export default function RtmMatrixPage() {
-  const [requirements, setRequirements] = useState<RTMRequirementEntry[] | null>(null);
-  const [settings, setSettings] = useState<ProjectSettingsOut | null>(null);
-  const [regenerating, setRegenerating] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const ctx = useRtmContext();
+  const [matrix, setMatrix] = useState<Matrix | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = () => {
-    getRTM()
-      .then(setRequirements)
-      .catch((e) => setError(e.message));
-  };
+  const load = useCallback(async () => {
+    if (!ctx.projectId || !ctx.iterationId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setMatrix(await rtmApi.getMatrix(ctx.projectId, ctx.iterationId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load the RTM matrix.");
+    } finally {
+      setLoading(false);
+    }
+  }, [ctx.projectId, ctx.iterationId]);
 
   useEffect(() => {
-    load();
-    getProjectSettings().then(setSettings).catch(() => {});
-  }, []);
+    void load();
+  }, [load]);
 
-  const saveSettings = (field: keyof ProjectSettingsOut) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const updated = { ...(settings as ProjectSettingsOut), [field]: e.target.value };
-    setSettings(updated);
-  };
-
-  const persistSettings = () => {
-    if (settings) updateProjectSettings(settings).catch(() => {});
-  };
-
-  const handleRegenerate = async () => {
-    setRegenerating(true);
+  const exportPdf = async () => {
+    if (!matrix) return;
+    setExporting(true);
     try {
-      const data = await regenerateRTM();
-      setRequirements(data);
+      const { default: JsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new JsPDF({ orientation: "landscape" });
+      doc.setFontSize(14);
+      doc.text(`Requirements Traceability Matrix — ${ctx.projectName ?? ""}`, 14, 14);
+      doc.setFontSize(9);
+      doc.text(
+        `Iteration: ${ctx.iterationName ?? matrix.iteration_id} · Requirements: ${matrix.summary.total_requirements} · Tests: ${matrix.summary.total_tests} · Pass rate: ${matrix.summary.pass_rate}%`,
+        14,
+        20,
+      );
+      autoTable(doc, {
+        startY: 24,
+        head: [["Req ID", "Requirement", "Type", "User Story", "Priority", "AC", "Test Case", "Result", "Coverage"]],
+        body: matrix.rows.flatMap((row) => {
+          const base = [
+            shortId(row.requirement_id),
+            row.requirement_text,
+            row.requirement_type,
+            row.user_story_title,
+            row.priority,
+            `${row.covered_acceptance_criteria}/${row.total_acceptance_criteria}`,
+          ];
+          if (row.tests.length === 0) {
+            return [[...base, "—", "—", row.coverage_status]];
+          }
+          return row.tests.map((test, i) => [
+            ...(i === 0 ? base : ["", "", "", "", "", ""]),
+            test.title,
+            test.status,
+            i === 0 ? row.coverage_status : "",
+          ]);
+        }),
+        styles: { fontSize: 7, cellPadding: 1.5 },
+        headStyles: { fillColor: [217, 119, 6] },
+      });
+      doc.save("rtm-matrix.pdf");
     } finally {
-      setRegenerating(false);
+      setExporting(false);
     }
   };
 
-  const handleDownloadPdf = async () => {
-    const { default: jsPDF } = await import('jspdf');
-    const { default: autoTable } = await import('jspdf-autotable');
-
-    const doc = new jsPDF({ orientation: 'landscape' });
-    doc.setFontSize(16);
-    doc.text('Requirements Traceability Matrix', 14, 16);
-    doc.setFontSize(10);
-    doc.text(settings?.project_name || '', 14, 23);
-
-    const rows = flattenRows(requirements || []);
-    autoTable(doc, {
-      startY: 28,
-      head: [[
-        'Req. ID', 'Description', 'Source', 'Type', 'WBS Deliverables',
-        'Test Case ID', 'Test Description', 'Result',
-      ]],
-      body: rows.map(({ req, test }) => [
-        `REQ-${req.requirement_id}`,
-        req.description,
-        req.source,
-        req.req_type,
-        req.wbs_deliverables,
-        test ? `TC-${test.test_case_id}` : '—',
-        test ? test.title : 'No test linked',
-        test ? test.status : '—',
-      ]),
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [67, 56, 202] },
-    });
-
-    doc.save('RTM_Report.pdf');
-  };
-
-  if (error) return <p className="text-red-700">Failed to load RTM: {error}</p>;
-  if (!requirements) return <p className="text-slate-500">Loading…</p>;
-
-  const rows = flattenRows(requirements);
-  const totalTests = rows.filter((r) => r.test).length;
-  const scored = rows.filter((r) => r.test && r.test.quality_score != null);
-  const passed = scored.filter((r) => r.test!.status === 'approved');
-  const passRate = scored.length ? (passed.length / scored.length) * 100 : 0;
-  const defects = rows.filter((r) => r.test && r.test.status === 'rejected').length;
+  const summary = matrix?.summary;
 
   return (
-    <div>
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="w-full max-w-md rounded-xl border border-indigo-900/70 p-4 lg:w-[380px]">
-          {(
-            [
-              ['project_name', 'Project Name:'],
-              ['project_manager', 'Project Manager:'],
-              ['project_description', 'Project Desc:'],
-            ] as const
-          ).map(([field, label]) => (
-            <div key={field} className="mb-2 flex items-start gap-2 last:mb-0">
-              <span className="w-32 shrink-0 pt-1 text-sm font-bold text-slate-700">{label}</span>
-              {field === 'project_description' ? (
-                <textarea
-                  rows={2}
-                  className="w-full resize-none border-b border-slate-400 bg-transparent pb-1 text-sm text-indigo-700 focus:border-indigo-600 focus:outline-none"
-                  value={settings?.[field] || ''}
-                  onChange={saveSettings(field)}
-                  onBlur={persistSettings}
-                />
-              ) : (
-                <input
-                  className="w-full border-b border-slate-400 bg-transparent pb-1 text-sm text-indigo-700 focus:border-indigo-600 focus:outline-none"
-                  value={settings?.[field] || ''}
-                  onChange={saveSettings(field)}
-                  onBlur={persistSettings}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-col items-end gap-3">
-          <h1 className="text-right text-3xl font-extrabold leading-tight text-[#1e1b4b]">
-            Requirements
-            <br />
-            Traceability Matrix
-          </h1>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={load}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-            >
-              <RefreshCw size={15} /> REFRESH
-            </button>
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-            >
-              <Sparkles size={15} /> {regenerating ? 'GENERATING…' : 'AUTO-GENERATE MATRIX'}
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-[#1e1b4b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#151235]"
-            >
-              <Plus size={15} /> ADD MATRIX RECORD
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadPdf}
-              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-            >
-              <FileText size={15} /> DOWNLOAD PDF REPORT
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 grid grid-cols-4 gap-5">
-        <StatCard
-          label="Requirements"
-          value={requirements.length}
-          icon={ListChecks}
-          accent={{ border: 'border-blue-400', bg: 'bg-blue-50', text: 'text-blue-500' }}
-        />
-        <StatCard
-          label="Test Cases"
-          value={totalTests}
-          icon={CheckCircle2}
-          accent={{ border: 'border-green-400', bg: 'bg-green-50', text: 'text-green-500' }}
-        />
-        <StatCard
-          label="Total Pass Rate"
-          value={`${passRate.toFixed(1)}%`}
-          icon={BarChart3}
-          accent={{ border: 'border-orange-400', bg: 'bg-orange-50', text: 'text-orange-500' }}
-        />
-        <StatCard
-          label="Defects Found"
-          value={defects}
-          icon={Bug}
-          accent={{ border: 'border-red-400', bg: 'bg-red-50', text: 'text-red-500' }}
-        />
-      </div>
-
-      <div className="mt-6 overflow-x-auto rounded-2xl bg-white shadow-sm">
-        <table className="w-full min-w-[900px] border-collapse text-sm">
-          <thead>
-            <tr>
-              <th colSpan={5} className="border-b border-blue-100 bg-blue-50 px-4 py-2 text-left font-bold text-blue-800">
-                Requirements
-              </th>
-              <th colSpan={3} className="border-b border-green-100 bg-green-50 px-4 py-2 text-left font-bold text-green-800">
-                Testing
-              </th>
-            </tr>
-            <tr className="text-xs uppercase text-slate-500">
-              <th className="px-4 py-2 text-left">Req. ID</th>
-              <th className="px-4 py-2 text-left">Requirements Description</th>
-              <th className="px-4 py-2 text-left">Requirements Source</th>
-              <th className="px-4 py-2 text-left">Requirement Type</th>
-              <th className="px-4 py-2 text-left">WBS Deliverables</th>
-              <th className="px-4 py-2 text-left">Test Case ID</th>
-              <th className="px-4 py-2 text-left">Test Description</th>
-              <th className="px-4 py-2 text-left">TEST</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ req, test }, i) => (
-              <tr key={`${req.requirement_id}-${test?.test_case_id ?? 'none'}-${i}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                <td className="px-4 py-2.5 font-medium">
-                  <Link to={`/rtm/requirements/${req.requirement_id}`} className="text-indigo-600 hover:underline">
-                    REQ-{req.requirement_id}
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5 text-slate-600">{req.description}</td>
-                <td className="px-4 py-2.5 text-slate-600">{req.source || '—'}</td>
-                <td className="px-4 py-2.5 text-slate-600">{req.req_type || '—'}</td>
-                <td className="px-4 py-2.5 text-slate-600">{req.wbs_deliverables || '—'}</td>
-                <td className="px-4 py-2.5 text-slate-600">{test ? `TC-${test.test_case_id}` : '—'}</td>
-                <td className="px-4 py-2.5 text-slate-600">{test ? test.title : 'No test linked'}</td>
-                <td className="px-4 py-2.5">{test ? <TestStatusBadge status={test.status} /> : '—'}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
-                  No requirements yet — click "Add Matrix Record" to create one.
-                </td>
-              </tr>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
+            RTM Matrix
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Live requirement → user story → test case traceability for{" "}
+            <span className="font-semibold text-amber-600">{ctx.projectName ?? "…"}</span>
+            {ctx.iterationName && (
+              <>
+                {" · iteration "}
+                <span className="font-semibold text-amber-600">{ctx.iterationName}</span>
+              </>
             )}
-          </tbody>
-        </table>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void load()}
+            disabled={loading || !!ctx.error}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:text-amber-600 disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
+          <button
+            onClick={() => void exportPdf()}
+            disabled={!matrix || exporting}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-200 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50"
+          >
+            <Download size={14} /> {exporting ? "Exporting..." : "Export PDF"}
+          </button>
+        </div>
       </div>
 
-      {showModal && (
-        <AddMatrixRecordModal
-          onClose={() => setShowModal(false)}
-          onCreated={() => {
-            setShowModal(false);
-            load();
-          }}
+      {(ctx.error || error) && <RtmErrorBanner message={ctx.error ?? error ?? ""} />}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <RtmStatCard
+          title="Requirements"
+          value={summary ? String(summary.total_requirements) : "--"}
+          change={summary ? `${summary.fully_covered} fully covered` : "…"}
         />
-      )}
+        <RtmStatCard
+          title="Test Cases"
+          value={summary ? String(summary.total_tests) : "--"}
+          change={summary ? `${summary.pending_tests} not yet executed` : "…"}
+        />
+        <RtmStatCard
+          title="Pass Rate"
+          value={summary ? `${summary.pass_rate}%` : "--"}
+          change={summary ? `${summary.passed_tests} of ${summary.passed_tests + summary.failed_tests} executed` : "…"}
+        />
+        <RtmStatCard
+          title="Defects"
+          value={summary ? String(summary.defects) : "--"}
+          change={summary ? `${summary.not_covered} requirements uncovered` : "…"}
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h3 className="text-sm font-bold text-[var(--foreground)]">Traceability Matrix</h3>
+          {summary && (
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <span className="text-green-600">{summary.fully_covered} full</span>·
+              <span className="text-amber-600">{summary.partially_covered} partial</span>·
+              <span className="text-red-600">{summary.not_covered} uncovered</span>
+            </div>
+          )}
+        </div>
+
+        {ctx.loading || loading ? (
+          <RtmSpinner label="Assembling matrix from Component 1 & 2..." />
+        ) : !matrix || matrix.rows.length === 0 ? (
+          <RtmEmptyState
+            icon={<Layers size={20} />}
+            title="No requirements in this iteration"
+            subtitle="Process a meeting in the Meeting module to extract requirements and user stories, then generate test cases in Test Case Gen — the matrix builds itself from that data."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <th className="px-4 py-3">Requirement</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">User Story</th>
+                  <th className="px-4 py-3">Priority</th>
+                  <th className="px-4 py-3 text-center">AC Covered</th>
+                  <th className="px-4 py-3">Test Case</th>
+                  <th className="px-4 py-3">Result</th>
+                  <th className="px-4 py-3">Coverage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.rows.map((row) => (
+                  <MatrixRowGroup key={row.requirement_id} row={row} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function MatrixRowGroup({ row }: { row: MatrixRow }) {
+  const span = Math.max(row.tests.length, 1);
+  const requirementCells = (
+    <>
+      <td rowSpan={span} className="max-w-xs border-b border-slate-100 px-4 py-3 align-top">
+        <Link
+          to={`/rtm/requirements/${row.requirement_id}`}
+          className="text-xs font-black text-amber-600 hover:underline"
+        >
+          REQ-{shortId(row.requirement_id)}
+        </Link>
+        <p className="mt-1 text-xs font-medium text-[var(--foreground)]">{row.requirement_text}</p>
+        {row.meeting_title && (
+          <p className="mt-1 text-[10px] text-slate-400">from “{row.meeting_title}”</p>
+        )}
+      </td>
+      <td rowSpan={span} className="border-b border-slate-100 px-4 py-3 align-top text-xs capitalize text-[var(--muted)]">
+        {row.requirement_type || "—"}
+      </td>
+      <td rowSpan={span} className="max-w-xs border-b border-slate-100 px-4 py-3 align-top">
+        <p className="text-xs font-semibold text-[var(--foreground)]">{row.user_story_title || "—"}</p>
+        <p className="mt-1 line-clamp-2 text-[10px] text-slate-400">{row.user_story_text}</p>
+      </td>
+      <td rowSpan={span} className="border-b border-slate-100 px-4 py-3 align-top">
+        <RtmPill label={row.priority || "—"} type="priority" />
+      </td>
+      <td rowSpan={span} className="border-b border-slate-100 px-4 py-3 text-center align-top">
+        <span
+          className={`text-xs font-black ${
+            row.covered_acceptance_criteria === row.total_acceptance_criteria
+              ? "text-green-600"
+              : row.covered_acceptance_criteria > 0
+                ? "text-amber-600"
+                : "text-red-600"
+          }`}
+        >
+          {row.covered_acceptance_criteria}/{row.total_acceptance_criteria}
+        </span>
+      </td>
+    </>
+  );
+
+  if (row.tests.length === 0) {
+    return (
+      <tr className="hover:bg-slate-50/60">
+        {requirementCells}
+        <td className="border-b border-slate-100 px-4 py-3 text-xs italic text-slate-400" colSpan={2}>
+          <span className="flex items-center gap-1.5">
+            <GitBranch size={12} /> No test case yet — generate one in Test Case Gen or from Coverage Gaps.
+          </span>
+        </td>
+        <td className="border-b border-slate-100 px-4 py-3">
+          <RtmPill label={row.coverage_status} type="coverage" />
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <>
+      {row.tests.map((test, i) => (
+        <tr key={test.id} className="hover:bg-slate-50/60">
+          {i === 0 && requirementCells}
+          <td className="max-w-xs border-b border-slate-100 px-4 py-3">
+            <p className="truncate text-xs font-medium text-[var(--foreground)]" title={test.title}>
+              {test.title}
+            </p>
+            <RtmPill label={test.source === "C2" ? "C2" : "Generated"} type="source" />
+          </td>
+          <td className="border-b border-slate-100 px-4 py-3">
+            <RtmPill label={test.status} type="test" />
+          </td>
+          {i === 0 && (
+            <td rowSpan={span} className="border-b border-slate-100 px-4 py-3 align-top">
+              <RtmPill label={row.coverage_status} type="coverage" />
+            </td>
+          )}
+        </tr>
+      ))}
+    </>
   );
 }
