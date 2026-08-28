@@ -119,7 +119,7 @@ export default function RtmDashboardPage() {
     <div>
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-indigo-600">ML Test Quality Dashboard</h1>
+          <h1 className="text-3xl font-extrabold text-indigo-600">ML Test Quality </h1>
           <p className="mt-1 text-slate-500">
             Real-time insights &bull; AI-Powered Analysis &bull; Quality Assurance
           </p>
@@ -306,33 +306,7 @@ export default function RtmDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-[#1e1b4b]">Recent Activities</h2>
-          <div className="mt-3 divide-y divide-slate-100">
-            {summary.recent_activities.length === 0 ? (
-              <p className="py-4 text-sm text-slate-400">No activity yet.</p>
-            ) : (
-              summary.recent_activities.map((activity, i) => {
-                const iconInfo = ACTIVITY_ICON[activity.activity_type] || ACTIVITY_ICON.model_loaded;
-                const { Icon, bg, fg } = iconInfo;
-                return (
-                  <div key={i} className="flex items-start justify-between gap-3 py-3.5">
-                    <div className="flex items-start gap-3">
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bg} ${fg}`}>
-                        <Icon size={16} />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-[#1e1b4b]">{activity.title}</p>
-                        <p className="text-xs text-slate-400">{activity.detail}</p>
-                      </div>
-                    </div>
-                    <span className="shrink-0 text-xs text-slate-400">{timeAgo(activity.created_at)}</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+  
       </div>
     </div>
   );

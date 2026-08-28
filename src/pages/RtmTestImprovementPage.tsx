@@ -7,7 +7,8 @@ import {
   Wand2,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   getC2QualityDatasetSamples,
   getC2QualityPredictions,
@@ -136,6 +137,10 @@ interface MergedTestCase {
 }
 
 export default function RtmTestImprovementPage() {
+  const [searchParams] = useSearchParams();
+  const requestedTestCaseId = searchParams.get('testCaseId') || '';
+  const autoSelectedRef = useRef(false);
+
   const [c2Status, setC2Status] = useState<C2StatusOut | null>(null);
   const [c2ProjectId, setC2ProjectId] = useState('');
   const [c2IterationId, setC2IterationId] = useState('');
@@ -218,6 +223,21 @@ export default function RtmTestImprovementPage() {
       .catch((e) => setImproveError(e?.response?.data?.detail || 'Failed to analyze this test case.'))
       .finally(() => setImproveLoading(false));
   };
+
+  // Deep-link support: the Coverage Gaps page links here with
+  // ?testCaseId=<id> for a specific covering test case. Auto-select it once
+  // it shows up in the merged list, but only the first time — later
+  // re-renders (or the user picking something else) must not keep
+  // overriding their selection.
+  useEffect(() => {
+    if (autoSelectedRef.current || !requestedTestCaseId) return;
+    const match = testCases.find((tc) => tc.prediction.test_case_id === requestedTestCaseId);
+    if (match) {
+      autoSelectedRef.current = true;
+      handleSelect(requestedTestCaseId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedTestCaseId, testCases]);
 
   const confidence = selected
     ? Math.max(0, ...Object.values(selected.prediction.probabilities || {}))

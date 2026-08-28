@@ -512,26 +512,44 @@ export interface C2ImproveResponse {
 // ── Risk-Based Coverage Gap Prioritization & Resolution ─────────────────
 
 export interface GapRiskFactorsOut {
-  business_priority: number;
   coverage_gap: number;
-  acceptance_criteria_gap: number;
+  business_priority: number;
   test_failure_rate: number;
   code_coverage_gap: number;
+}
+
+export interface AcceptanceCriterionCoverageOut {
+  acceptance_criterion: string;
+  covered: boolean;
+  test_case_id: string | null;
+  test_case_title: string | null;
+  test_result: string | null;
 }
 
 export interface C2CoverageGapOut {
   requirement_id: string;
   requirement_text: string;
   requirement_type: string;
+  requirement_status: string;
   user_story_id: string;
   user_story_title: string;
   user_story_text: string;
   priority: string;
+
+  coverage_status: 'Fully Covered' | 'Partially Covered' | 'Not Covered';
+  ac_coverage_pct: number;
   total_acceptance_criteria: number;
   covered_acceptance_criteria: number;
-  missing_acceptance_criteria: string[];
+  uncovered_acceptance_criteria: string[];
+  ac_details: AcceptanceCriterionCoverageOut[];
+
   linked_test_case_count: number;
-  current_coverage_pct: number;
+  linked_test_case_ids: string[];
+  passed_tests: number;
+  failed_tests: number;
+
+  code_coverage_pct: number | null;
+
   risk_score: number;
   risk_level: string;
   risk_factors: GapRiskFactorsOut;
