@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
-  FileText,
   GitBranch,
   Monitor,
   Play,
@@ -19,7 +18,7 @@ import {
   openExecutionStream,
   runLatestFrameUrl,
   downloadRunPdf,
-  openRunLog,
+  downloadRunLog,
   openAuthedArtifact,
   testCaseApi,
 } from "../api/testCaseApi";
@@ -553,13 +552,13 @@ export default function TestScriptExecutionPage() {
               <button
                 type="button"
                 onClick={() =>
-                  openRunLog(activeDetail.id).catch(() =>
-                    window.alert("Couldn't open the log — please try again.")
+                  downloadRunLog(activeDetail.id).catch(() =>
+                    window.alert("Couldn't download the log — please try again.")
                   )
                 }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black text-slate-500 transition hover:text-indigo-600"
               >
-                <FileText size={12} /> Raw Log
+                <Download size={12} /> Raw Log
               </button>
               <button
                 type="button"
