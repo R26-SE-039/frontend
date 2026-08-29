@@ -506,3 +506,34 @@ export const runScreenshotUrl = (runId: string, filename: string): string =>
 
 export const runLatestFrameUrl = (runId: string): string =>
   `${TEST_CASE_API_URL}/api/v1/runs/${runId}/screenshots/latest`;
+
+// ── Authenticated artifact download / open ────────────────────────────────────
+// These routes are protected by the gateway (JWT required), but a plain
+// <a href> / new-tab navigation cannot attach the Bearer token — so a direct
+// link returns {"error":"Missing bearer token"}. Instead we fetch the artifact
+// WITH the auth header and hand the resulting blob to the browser.
+async function authedBlobUrl(url: string): Promise<string> {
+  const token = useMeetingStore.getState().user?.accessToken;
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  return URL.createObjectURL(await res.blob());
+}
+
+export async function downloadRunPdf(runId: string): Promise<void> {
+  const objectUrl = await authedBlobUrl(runPdfUrl(runId));
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = `report-${runId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+}
+
+export async function openRunLog(runId: string): Promise<void> {
+  const objectUrl = await authedBlobUrl(runLogUrl(runId));
+  window.open(objectUrl, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
