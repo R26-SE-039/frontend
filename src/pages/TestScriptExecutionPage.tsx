@@ -18,8 +18,8 @@ import { TEST_CASE_API_URL } from "../api/config";
 import {
   openExecutionStream,
   runLatestFrameUrl,
-  runLogUrl,
-  runPdfUrl,
+  downloadRunPdf,
+  openRunLog,
   testCaseApi,
 } from "../api/testCaseApi";
 import { projectConfigApi } from "../api/projectConfigApi";
@@ -548,22 +548,28 @@ export default function TestScriptExecutionPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <TestCasePill label={activeDetail.status} type="run" />
-              <a
-                href={runLogUrl(activeDetail.id)}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() =>
+                  openRunLog(activeDetail.id).catch(() =>
+                    window.alert("Couldn't open the log — please try again.")
+                  )
+                }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black text-slate-500 transition hover:text-indigo-600"
               >
                 <FileText size={12} /> Raw Log
-              </a>
-              <a
-                href={runPdfUrl(activeDetail.id)}
-                target="_blank"
-                rel="noreferrer"
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadRunPdf(activeDetail.id).catch(() =>
+                    window.alert("Couldn't download the PDF — please try again.")
+                  )
+                }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-black text-indigo-600 transition hover:bg-indigo-100"
               >
                 <Download size={12} /> PDF Report
-              </a>
+              </button>
             </div>
           </div>
 
