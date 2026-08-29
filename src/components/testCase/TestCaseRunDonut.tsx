@@ -51,15 +51,15 @@ export default function TestCaseRunDonut({ passed, failed }: TestCaseRunDonutPro
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+            <PieChart margin={{ top: 6, right: 6, bottom: 6, left: 6 }}>
               <Pie
                 data={visibleData}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={88}
-                innerRadius={56}
+                outerRadius="90%"
+                innerRadius="62%"
                 paddingAngle={visibleData.length > 1 ? 3 : 0}
                 label={false}
                 labelLine={false}

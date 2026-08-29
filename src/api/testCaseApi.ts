@@ -532,8 +532,21 @@ export async function downloadRunPdf(runId: string): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
 }
 
-export async function openRunLog(runId: string): Promise<void> {
+export async function downloadRunLog(runId: string): Promise<void> {
   const objectUrl = await authedBlobUrl(runLogUrl(runId));
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = `execution-log-${runId}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+}
+
+// Open any protected artifact (e.g. a full-size screenshot) in a new tab with
+// the auth header attached — a plain <a href> would 401.
+export async function openAuthedArtifact(url: string): Promise<void> {
+  const objectUrl = await authedBlobUrl(url);
   window.open(objectUrl, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
