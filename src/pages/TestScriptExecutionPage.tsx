@@ -20,8 +20,10 @@ import {
   runLatestFrameUrl,
   downloadRunPdf,
   openRunLog,
+  openAuthedArtifact,
   testCaseApi,
 } from "../api/testCaseApi";
+import AuthedImg from "../components/testCase/AuthedImg";
 import { projectConfigApi } from "../api/projectConfigApi";
 import type {
   ExecutionEvent,
@@ -466,7 +468,7 @@ export default function TestScriptExecutionPage() {
                           <p className="border-b border-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                             Live Browser Preview
                           </p>
-                          <img
+                          <AuthedImg
                             src={`${runLatestFrameUrl(runner.runId)}?t=${previewTick}`}
                             alt="Live browser frame"
                             className="max-h-56 w-full object-contain"
@@ -647,14 +649,17 @@ export default function TestScriptExecutionPage() {
               </p>
               <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
                 {activeDetail.screenshots.map((screenshot, index) => (
-                  <a
+                  <button
+                    type="button"
                     key={`${screenshot.label}-${index}`}
-                    href={screenshotSrc(screenshot.image_url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-indigo-200 hover:shadow-md"
+                    onClick={() =>
+                      openAuthedArtifact(screenshotSrc(screenshot.image_url)).catch(() =>
+                        window.alert("Couldn't open the screenshot — please try again.")
+                      )
+                    }
+                    className="group block w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition hover:border-indigo-200 hover:shadow-md"
                   >
-                    <img
+                    <AuthedImg
                       src={screenshotSrc(screenshot.image_url)}
                       alt={screenshot.label}
                       className="h-32 w-full object-cover"
@@ -665,7 +670,7 @@ export default function TestScriptExecutionPage() {
                       </p>
                       <TestCasePill label={screenshot.status} type="run" />
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>

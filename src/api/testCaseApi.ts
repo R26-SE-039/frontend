@@ -537,3 +537,11 @@ export async function openRunLog(runId: string): Promise<void> {
   window.open(objectUrl, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
+
+// Open any protected artifact (e.g. a full-size screenshot) in a new tab with
+// the auth header attached — a plain <a href> would 401.
+export async function openAuthedArtifact(url: string): Promise<void> {
+  const objectUrl = await authedBlobUrl(url);
+  window.open(objectUrl, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
