@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GitBranch, Play, RefreshCw } from "lucide-react";
 import { rtmApi } from "../api/rtmApi";
-import RtmStatCard from "../components/rtm/RtmStatCard";
 import { RtmEmptyState, RtmErrorBanner, RtmSpinner } from "../components/rtm/RtmPageState";
 import { useRtmContext } from "../components/rtm/useRtmContext";
 import type { CoverageReport, GithubConnectionStatus } from "../types/rtm";
@@ -158,24 +157,6 @@ export default function RtmCoveragePage() {
         <RtmSpinner label="Loading coverage state..." />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <RtmStatCard
-              title="Overall Coverage"
-              value={done ? `${report!.overall_coverage.toFixed(1)}%` : "--"}
-              change={report?.repo_url ? report.repo_url.replace("https://github.com/", "") : "no run yet"}
-            />
-            <RtmStatCard
-              title="Statement Coverage"
-              value={done ? `${report!.statement_coverage.toFixed(1)}%` : "--"}
-              change="weighted across files"
-            />
-            <RtmStatCard
-              title="Branch Coverage"
-              value={done ? `${report!.branch_coverage.toFixed(1)}%` : "--"}
-              change="weighted across files"
-            />
-          </div>
-
           {(running || (report?.logs.length ?? 0) > 0) && (
             <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
