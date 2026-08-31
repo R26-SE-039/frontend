@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
-  FileText,
   GitBranch,
   Monitor,
   Play,
@@ -18,10 +17,12 @@ import { TEST_CASE_API_URL } from "../api/config";
 import {
   openExecutionStream,
   runLatestFrameUrl,
-  runLogUrl,
-  runPdfUrl,
+  downloadRunPdf,
+  downloadRunLog,
+  openAuthedArtifact,
   testCaseApi,
 } from "../api/testCaseApi";
+import AuthedImg from "../components/testCase/AuthedImg";
 import { projectConfigApi } from "../api/projectConfigApi";
 import type {
   ExecutionEvent,
@@ -466,7 +467,7 @@ export default function TestScriptExecutionPage() {
                           <p className="border-b border-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
                             Live Browser Preview
                           </p>
-                          <img
+                          <AuthedImg
                             src={`${runLatestFrameUrl(runner.runId)}?t=${previewTick}`}
                             alt="Live browser frame"
                             className="max-h-56 w-full object-contain"
@@ -548,22 +549,28 @@ export default function TestScriptExecutionPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <TestCasePill label={activeDetail.status} type="run" />
-              <a
-                href={runLogUrl(activeDetail.id)}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() =>
+                  downloadRunLog(activeDetail.id).catch(() =>
+                    window.alert("Couldn't download the log — please try again.")
+                  )
+                }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black text-slate-500 transition hover:text-indigo-600"
               >
-                <FileText size={12} /> Raw Log
-              </a>
-              <a
-                href={runPdfUrl(activeDetail.id)}
-                target="_blank"
-                rel="noreferrer"
+                <Download size={12} /> Raw Log
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadRunPdf(activeDetail.id).catch(() =>
+                    window.alert("Couldn't download the PDF — please try again.")
+                  )
+                }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-black text-indigo-600 transition hover:bg-indigo-100"
               >
                 <Download size={12} /> PDF Report
-              </a>
+              </button>
             </div>
           </div>
 
@@ -641,14 +648,17 @@ export default function TestScriptExecutionPage() {
               </p>
               <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
                 {activeDetail.screenshots.map((screenshot, index) => (
-                  <a
+                  <button
+                    type="button"
                     key={`${screenshot.label}-${index}`}
-                    href={screenshotSrc(screenshot.image_url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-indigo-200 hover:shadow-md"
+                    onClick={() =>
+                      openAuthedArtifact(screenshotSrc(screenshot.image_url)).catch(() =>
+                        window.alert("Couldn't open the screenshot — please try again.")
+                      )
+                    }
+                    className="group block w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition hover:border-indigo-200 hover:shadow-md"
                   >
-                    <img
+                    <AuthedImg
                       src={screenshotSrc(screenshot.image_url)}
                       alt={screenshot.label}
                       className="h-32 w-full object-cover"
@@ -659,7 +669,7 @@ export default function TestScriptExecutionPage() {
                       </p>
                       <TestCasePill label={screenshot.status} type="run" />
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>

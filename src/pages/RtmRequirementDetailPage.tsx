@@ -1,92 +1,167 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { getRTMForRequirement } from '../api/rtmApi';
-import StatusBadge from '../components/rtm/StatusBadge';
-import type { RTMRequirementEntry } from '../types/rtm';
+import { useCallback, useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, FileText, XCircle } from "lucide-react";
+import { rtmApi } from "../api/rtmApi";
+import RtmPill from "../components/rtm/RtmPill";
+import { RtmErrorBanner, RtmSpinner } from "../components/rtm/RtmPageState";
+import { useRtmContext } from "../components/rtm/useRtmContext";
+import type { MatrixRow } from "../types/rtm";
 
 export default function RtmRequirementDetailPage() {
-  const { id } = useParams();
-  const [data, setData] = useState<RTMRequirementEntry | null>(null);
+  const { id } = useParams<{ id: string }>();
+  const ctx = useRtmContext();
+  const [row, setRow] = useState<MatrixRow | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!id) return;
-    getRTMForRequirement(id)
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, [id]);
+  const load = useCallback(async () => {
+    if (!id || !ctx.projectId || !ctx.iterationId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setRow(await rtmApi.getMatrixRequirement(id, ctx.projectId, ctx.iterationId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load the requirement.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, ctx.projectId, ctx.iterationId]);
 
-  if (error) return <p style={{ padding: 24, color: '#991b1b' }}>Failed to load: {error}</p>;
-  if (!data) return <p style={{ padding: 24 }}>Loading…</p>;
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
-    <div>
-      <Link to="/rtm" style={{ color: '#4338ca', fontSize: '0.85rem' }}>
-        &larr; Back to RTM Matrix
-      </Link>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 10 }}>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: '1.4rem', marginBottom: 4 }}>{data.title}</h1>
-          <p style={{ color: '#64748b', maxWidth: 640 }}>{data.description}</p>
+          <Link
+            to="/rtm"
+            className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-amber-600"
+          >
+            <ArrowLeft size={14} /> Back to Matrix
+          </Link>
+          <h2 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">
+            Requirement Trace
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Full trace for REQ-{id?.slice(0, 8).toUpperCase()} in{" "}
+            <span className="font-semibold text-amber-600">{ctx.projectName ?? "…"}</span>
+          </p>
         </div>
-        <StatusBadge status={data.status} />
+        {row && <RtmPill label={row.coverage_status} type="coverage" />}
       </div>
 
-      <div style={{ display: 'flex', gap: 24, margin: '20px 0', color: '#334155', fontSize: '0.9rem' }}>
-        <span>
-          <b>{data.covered_acceptance_criteria}</b>/{data.total_acceptance_criteria} AC covered
-        </span>
-        <span>
-          <b>{data.total_tests}</b> linked tests
-        </span>
-        <span>
-          Avg coverage <b>{data.avg_coverage_percent.toFixed(0)}%</b>
-        </span>
-      </div>
+      {(ctx.error || error) && <RtmErrorBanner message={ctx.error ?? error ?? ""} />}
 
-      <h2 style={{ fontSize: '1.05rem', marginTop: 24, marginBottom: 10 }}>Acceptance Criteria</h2>
-      <div style={{ display: 'grid', gap: 14 }}>
-        {data.acceptance_criteria.map((ac) => (
-          <div key={ac.acceptance_criteria_id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600 }}>{ac.description}</span>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  color: ac.covered ? '#166534' : '#991b1b',
-                }}
-              >
-                {ac.covered ? 'COVERED' : 'UNCOVERED'}
+      {ctx.loading || loading ? (
+        <RtmSpinner label="Loading requirement trace..." />
+      ) : row ? (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
+                Requirement
+              </p>
+              <p className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                {row.requirement_text}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <RtmPill label={row.requirement_type || "unspecified"} type="source" />
+                <RtmPill label={row.requirement_status || "active"} type="test" />
+                {row.meeting_title && (
+                  <span className="text-[10px] text-slate-400">from “{row.meeting_title}”</span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
+                User Story
+              </p>
+              <p className="mt-2 text-sm font-bold text-[var(--foreground)]">
+                {row.user_story_title || "—"}
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{row.user_story_text}</p>
+              <div className="mt-4">
+                <RtmPill label={row.priority || "—"} type="priority" />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">Acceptance Criteria</h3>
+              <span className="text-xs font-black text-amber-600">
+                {row.covered_acceptance_criteria}/{row.total_acceptance_criteria} covered
               </span>
             </div>
-            {ac.tests.length > 0 ? (
-              <table style={{ width: '100%', marginTop: 10, borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', color: '#64748b' }}>
-                    <th style={{ padding: '4px 0' }}>Test</th>
-                    <th>Status</th>
-                    <th>Quality</th>
-                    <th>Coverage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ac.tests.map((t) => (
-                    <tr key={t.test_case_id} style={{ borderTop: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '6px 0' }}>{t.title}</td>
-                      <td>{t.status}</td>
-                      <td>{t.quality_score != null ? t.quality_score.toFixed(0) : '—'}</td>
-                      <td>{t.coverage_percent.toFixed(0)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <ul className="mt-4 space-y-2">
+              {row.acceptance_criteria.map((criterion) => {
+                const missing = row.missing_acceptance_criteria.includes(criterion);
+                return (
+                  <li key={criterion} className="flex items-start gap-2 text-xs text-[var(--foreground)]">
+                    {missing ? (
+                      <XCircle size={14} className="mt-0.5 shrink-0 text-red-500" />
+                    ) : (
+                      <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-green-500" />
+                    )}
+                    <span className={missing ? "text-[var(--muted)]" : ""}>{criterion}</span>
+                  </li>
+                );
+              })}
+              {row.acceptance_criteria.length === 0 && (
+                <li className="text-xs italic text-slate-400">No acceptance criteria recorded.</li>
+              )}
+            </ul>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">
+                Linked Test Cases ({row.total_tests})
+              </h3>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                <span className="text-green-600">{row.passed_tests} passed</span>·
+                <span className="text-red-600">{row.failed_tests} failed</span>·
+                <span className="text-yellow-600">{row.pending_tests} pending</span>
+              </div>
+            </div>
+            {row.tests.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-12 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                  <FileText size={20} />
+                </div>
+                <p className="text-sm font-bold text-[var(--foreground)]">No test cases linked</p>
+                <p className="max-w-md text-xs text-[var(--muted)]">
+                  Generate test cases for this story in Test Case Gen, or resolve it from the
+                  Coverage Gaps page.
+                </p>
+              </div>
             ) : (
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: 8 }}>No tests linked yet.</p>
+              <div className="divide-y divide-slate-100">
+                {row.tests.map((test) => (
+                  <details key={test.id} className="group px-6 py-4">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                      <span className="text-xs font-semibold text-[var(--foreground)]">
+                        {test.title}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <RtmPill label={test.source === "C2" ? "C2" : "Generated"} type="source" />
+                        <RtmPill label={test.status} type="test" />
+                      </span>
+                    </summary>
+                    {test.description && (
+                      <pre className="mt-3 overflow-x-auto rounded-xl bg-slate-50 p-4 text-[11px] leading-relaxed text-slate-600">
+                        {test.description}
+                      </pre>
+                    )}
+                  </details>
+                ))}
+              </div>
             )}
           </div>
-        ))}
-      </div>
+        </>
+      ) : null}
     </div>
   );
 }
