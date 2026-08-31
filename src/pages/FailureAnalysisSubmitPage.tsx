@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import type React from "react";
 import { Upload, PlusCircle, Layout, Code2, AlertTriangle, Activity, ShieldCheck, Award, ExternalLink, GitBranch, Wrench, FileCode2, CheckCircle2, Send, Play, RefreshCw, Clock } from "lucide-react";
 import { failureAnalysisApi } from "../api/failureAnalysisApi";
@@ -208,6 +209,7 @@ const ROOT_CAUSE_COLORS: Record<string, string> = {
 };
 
 export default function SubmitPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"github" | "manual" | "upload">("github");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PipelineResult | null>(null);
@@ -221,6 +223,7 @@ export default function SubmitPage() {
   const [runDetailsLoading, setRunDetailsLoading] = useState(false);
   const [runDetailsError, setRunDetailsError] = useState<string | null>(null);
   const [analyzingJobId, setAnalyzingJobId] = useState<number | null>(null);
+  const [notificationPromptRootCause, setNotificationPromptRootCause] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const organizationId = useMeetingStore((state) => state.user?.organizationId);
   const projectId = useMeetingStore((state) => state.currentProject?.id);
@@ -254,9 +257,11 @@ export default function SubmitPage() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setNotificationPromptRootCause(null);
     try {
       const data = await failureAnalysisApi.submitAnalysis<PipelineResult>(form);
       setResult(data);
+      maybeShowNotificationPrompt(data, setNotificationPromptRootCause);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -320,6 +325,7 @@ export default function SubmitPage() {
     setRunDetails(null);
     setRunDetailsError(null);
     setResult(null);
+    setNotificationPromptRootCause(null);
     setError(null);
 
     try {
@@ -339,6 +345,7 @@ export default function SubmitPage() {
     setRunDetailsError(null);
     setError(null);
     setResult(null);
+    setNotificationPromptRootCause(null);
     setRunDetailsLoading(true);
 
     try {
@@ -361,10 +368,13 @@ export default function SubmitPage() {
     setError(null);
     setRunDetailsError(null);
     setResult(null);
+    setNotificationPromptRootCause(null);
 
     try {
       const data = await failureAnalysisApi.analyzeGithubFailedJob<GitHubAnalyzeFailureResponse>(runId, job.job_id);
-      setResult(normalizeGithubAnalyzeResult(data));
+      const normalized = normalizeGithubAnalyzeResult(data);
+      setResult(normalized);
+      maybeShowNotificationPrompt(normalized, setNotificationPromptRootCause);
     } catch (e: unknown) {
       setRunDetailsError(formatGithubFlowError(e));
     } finally {
@@ -379,6 +389,7 @@ export default function SubmitPage() {
     setRunDetails(null);
     setRunDetailsError(null);
     setResult(null);
+    setNotificationPromptRootCause(null);
     setError(null);
     if (tab === "github") {
       void loadFailedRuns();
@@ -609,11 +620,92 @@ export default function SubmitPage() {
 
       {/* ── Result ───────────────────────────────────────────────────────────── */}
       {result && <AnalysisResult result={result} />}
+      {notificationPromptRootCause && (
+        <NotificationCreatedModal
+          rootCause={notificationPromptRootCause}
+          onViewNotification={() => {
+            setNotificationPromptRootCause(null);
+            navigate("/self-healing/notifications");
+          }}
+        />
+      )}
     </div>
   );
 }
 
 /* ── Sub-components ──────────────────────────────────────────────────────────── */
+
+const ROOT_CAUSE_LABELS: Record<string, string> = {
+  application_defect: "Application Defect",
+  test_script_issue: "Test Script Issue",
+  dependency_issue: "Dependency Issue",
+  network_issue: "Network Issue",
+  workflow_environment_issue: "Workflow / Environment Issue",
+  infrastructure_resource_issue: "Infrastructure / Resource Issue",
+  deployment_issue: "Deployment Issue",
+  security_policy_issue: "Security Policy Issue",
+  other_or_unknown: "Other or Unknown",
+};
+
+function formatRootCauseLabel(rootCause?: string | null): string {
+  if (!rootCause) return "Other or Unknown";
+  return ROOT_CAUSE_LABELS[rootCause] || rootCause.replace(/_/g, " ");
+}
+
+function getResultRootCause(result: PipelineResult): string | null {
+  return (
+    result.classification?.root_cause ||
+    result.pipeline?.classification?.root_cause ||
+    result.pipeline?.healing_plan?.root_cause ||
+    null
+  );
+}
+
+function shouldPromptForNotification(result: PipelineResult): string | null {
+  const rootCause = getResultRootCause(result);
+  if (!rootCause || rootCause === "application_defect") return null;
+  return rootCause;
+}
+
+function maybeShowNotificationPrompt(
+  result: PipelineResult,
+  setPrompt: (rootCause: string | null) => void,
+) {
+  setPrompt(shouldPromptForNotification(result));
+}
+
+function NotificationCreatedModal({
+  rootCause,
+  onViewNotification,
+}: {
+  rootCause: string;
+  onViewNotification: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-white p-6 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50 text-cyan-700">
+            <Send size={18} />
+          </div>
+          <div>
+            <h3 className="text-lg font-extrabold text-slate-900">Notification Created</h3>
+            <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+              This failure was classified as {formatRootCauseLabel(rootCause)}. A notification has been created for the recommended follow-up action.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onViewNotification}
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700"
+        >
+          View Notification
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function normalizeGithubAnalyzeResult(response: GitHubAnalyzeFailureResponse): PipelineResult {
   const analysis = response.analysis as Partial<PipelineResult> | null | undefined;
