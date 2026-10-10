@@ -388,8 +388,9 @@ export default function TestScriptSuiteEditorPage() {
             readOnly={isHistorical}
           />
         </div>
-        <div className="xl:col-span-4 xl:max-h-[680px]">
+        <div className="xl:col-span-4">
           <ValidationPanel
+            className="xl:h-[680px]"
             report={report}
             validating={validating}
             fixing={fixing || applyingFix}

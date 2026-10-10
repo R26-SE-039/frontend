@@ -14,8 +14,8 @@ export const verdictTone = (verdict?: ValidationVerdict | null) => {
   return { stroke: '#94a3b8', text: 'text-slate-500', bg: 'bg-slate-500/10 border-slate-500/20', label: 'Not validated' };
 };
 
-export default function ValidationScoreRing({ score, verdict, size = 96, label = 'predicted pass' }: Props) {
-  const stroke = 8;
+export default function ValidationScoreRing({ score, verdict, size = 108, label = 'predicted pass' }: Props) {
+  const stroke = 7;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, score));
@@ -38,9 +38,9 @@ export default function ValidationScoreRing({ score, verdict, size = 96, label =
           className="transition-all duration-700"
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`text-2xl font-black leading-none ${tone.text}`}>{clamped}%</span>
-        <span className="mt-1 text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-3 text-center">
+        <span className={`text-[22px] font-black leading-none tracking-tight ${tone.text}`}>{clamped}%</span>
+        <span className="mt-1 text-[8px] font-black uppercase leading-none tracking-wider text-slate-400">{label}</span>
       </div>
     </div>
   );

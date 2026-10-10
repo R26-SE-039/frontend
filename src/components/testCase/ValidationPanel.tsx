@@ -34,6 +34,8 @@ type Props = {
   /** Score before the last auto-fix, if the current report followed one. */
   previousScore?: number | null;
   disabled?: boolean;
+  /** Extra classes for the root, e.g. a fixed height so the body scrolls. Without one the panel sizes to its content. */
+  className?: string;
 };
 
 const SEVERITY_ORDER: ValidationSeverity[] = ['critical', 'major', 'minor', 'info'];
@@ -130,6 +132,7 @@ export default function ValidationPanel({
   onJumpToLine,
   previousScore,
   disabled = false,
+  className = '',
 }: Props) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showScenarios, setShowScenarios] = useState(true);
@@ -148,8 +151,8 @@ export default function ValidationPanel({
   const busy = validating || fixing;
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm">
-      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
+    <div className={`flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm ${className}`}>
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
             <ShieldCheck size={16} />
@@ -173,14 +176,14 @@ export default function ValidationPanel({
       </div>
 
       {validating && (
-        <div className="flex items-center gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-3 text-xs font-medium text-indigo-700">
+        <div className="flex shrink-0 items-center gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-3 text-xs font-medium text-indigo-700">
           <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
           Running deterministic checks and asking an independent model to predict the outcome of every scenario…
         </div>
       )}
 
       {!report && !validating ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+        <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
             <ShieldCheck size={22} />
           </div>
@@ -192,7 +195,7 @@ export default function ValidationPanel({
           </p>
         </div>
       ) : report ? (
-        <div className="custom-scrollbar flex-1 space-y-4 overflow-y-auto p-5">
+        <div className="custom-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           {stale && (
             <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
@@ -200,50 +203,58 @@ export default function ValidationPanel({
             </div>
           )}
 
-          <div className="flex items-start gap-4">
+          <div className="flex items-center gap-4">
             <ValidationScoreRing score={report.score} verdict={report.verdict} />
             <div className="min-w-0 flex-1 space-y-2">
-              <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${tone.bg} ${tone.text}`}>
-                {tone.label}
-              </span>
-              {typeof previousScore === 'number' && previousScore !== report.score && (
-                <p className="text-[11px] font-bold text-slate-500">
-                  Auto-fix moved the score from{' '}
-                  <span className="text-slate-800">{previousScore}%</span> to{' '}
-                  <span className={report.score > previousScore ? 'text-green-600' : 'text-red-600'}>{report.score}%</span>
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
-                  <p className="font-black uppercase tracking-wider text-slate-400">Scenarios</p>
-                  <p className="font-bold text-slate-800">
-                    {report.scenario_pass_predicted}/{report.scenario_total} predicted pass
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${tone.bg} ${tone.text}`}>
+                  {tone.label}
+                </span>
+                {typeof previousScore === 'number' && previousScore !== report.score && (
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {previousScore}% →{' '}
+                    <span className={report.score > previousScore ? 'text-green-600' : 'text-red-600'}>{report.score}%</span>{' '}
+                    after auto-fix
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-slate-50 px-2.5 py-2">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Scenarios</p>
+                  <p className="text-xs font-bold text-slate-800">
+                    {report.scenario_pass_predicted}/{report.scenario_total} <span className="font-semibold text-slate-500">predicted pass</span>
                   </p>
                 </div>
-                <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
-                  <p className="font-black uppercase tracking-wider text-slate-400">Static score</p>
-                  <p className="font-bold text-slate-800">{report.static_score}/100</p>
+                <div className="rounded-lg bg-slate-50 px-2.5 py-2">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Static score</p>
+                  <p className="text-xs font-bold text-slate-800">
+                    {report.static_score}<span className="font-semibold text-slate-500">/100</span>
+                  </p>
                 </div>
               </div>
-              <p className="text-[10px] font-semibold text-slate-400">
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] font-semibold text-slate-400">
                 {report.validator_model ? (
                   <>
-                    Judge: <span className="font-mono text-slate-600">{report.validator_model}</span>
+                    <span>
+                      Judge <span className="font-mono text-slate-600">{report.validator_model}</span>
+                    </span>
                     {report.breakdown?.independent_model && (
-                      <span className="ml-1 rounded bg-green-500/10 px-1.5 py-0.5 font-black text-green-600">
-                        independent model
-                      </span>
+                      <span className="rounded bg-green-500/10 px-1.5 py-0.5 font-black text-green-600">independent model</span>
                     )}
                   </>
                 ) : (
-                  'AI judge unavailable — deterministic checks only'
+                  <span>AI judge unavailable — deterministic checks only</span>
                 )}
-                {report.duration_ms ? ` · ${(report.duration_ms / 1000).toFixed(1)}s` : ''}
+                {report.duration_ms ? <span>· {(report.duration_ms / 1000).toFixed(1)}s</span> : null}
               </p>
             </div>
           </div>
 
-          {report.summary && <p className="text-xs leading-5 text-slate-600">{report.summary}</p>}
+          {report.summary && (
+            <p className="rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-3 text-xs leading-5 text-slate-600">
+              {report.summary}
+            </p>
+          )}
 
           {fixable.length > 0 && (
             <button
