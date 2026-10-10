@@ -299,3 +299,149 @@ export interface StartExplorationResponse {
   run_id: string;
   message: string;
 }
+
+// ─── Independent validation (static checks + LLM judge) ──────────────────────
+
+export type ValidationSeverity = 'critical' | 'major' | 'minor' | 'info';
+export type ValidationVerdict = 'ready' | 'needs_review' | 'likely_failing';
+export type ValidationPrediction = 'pass' | 'fail' | 'uncertain';
+
+export interface ValidationFinding {
+  id: string;
+  severity: ValidationSeverity;
+  category: string;
+  title: string;
+  detail: string;
+  source: 'static' | 'llm';
+  line?: number | null;
+  snippet?: string | null;
+  suggestion?: string | null;
+  fixable: boolean;
+  scenario?: string | null;
+}
+
+export interface ValidationScenario {
+  title: string;
+  test_name?: string | null;
+  implemented: boolean;
+  predicted: ValidationPrediction;
+  confidence: number;
+  reason: string;
+  testable?: boolean;
+}
+
+export interface ValidationBreakdown {
+  weights?: Record<string, number>;
+  static_score?: number;
+  llm_score?: number | null;
+  scenario_rate?: number | null;
+  base?: number;
+  caps_applied?: string[];
+  counts?: Record<ValidationSeverity, number>;
+  judge_available?: boolean;
+  independent_model?: boolean;
+  strengths?: string[];
+  coverage?: { criterion: string; covered: boolean; scenario?: string | null }[];
+  dom_elements?: number;
+  gherkin_features?: number;
+}
+
+export interface ValidationReport {
+  id: string;
+  project_id: string;
+  target_type: 'suite' | 'gherkin';
+  target_id: string;
+  content_hash: string;
+  framework?: string | null;
+  score: number;
+  verdict: ValidationVerdict;
+  static_score: number;
+  llm_score?: number | null;
+  scenario_total: number;
+  scenario_pass_predicted: number;
+  summary?: string | null;
+  findings: ValidationFinding[];
+  scenarios: ValidationScenario[];
+  breakdown: ValidationBreakdown;
+  validator_provider?: string | null;
+  validator_model?: string | null;
+  duration_ms?: number | null;
+  parent_report_id?: string | null;
+  created_at?: string | null;
+  is_current?: boolean;
+}
+
+export interface ValidationSummary {
+  report_id: string;
+  target_id: string;
+  score: number;
+  verdict: ValidationVerdict;
+  is_current: boolean | null;
+  critical: number;
+  major: number;
+  minor: number;
+  scenario_total: number;
+  scenario_pass_predicted: number;
+  validator_model?: string | null;
+  created_at?: string | null;
+}
+
+export interface StaticSnapshot {
+  score: number;
+  counts: Record<ValidationSeverity, number>;
+  findings?: ValidationFinding[];
+}
+
+export interface FixChange {
+  finding_id: string | null;
+  line: number | null;
+  description: string;
+}
+
+export interface SuiteFixProposal {
+  suite_id: string;
+  original_code: string;
+  fixed_code: string;
+  changes: FixChange[];
+  addressed_findings: ValidationFinding[];
+  static_before: StaticSnapshot;
+  static_after: StaticSnapshot;
+  fixer_provider: string;
+  fixer_model: string;
+}
+
+export interface GherkinFixProposal {
+  gherkin_id: string;
+  original_text: string;
+  fixed_text: string;
+  changes: FixChange[];
+  addressed_findings: ValidationFinding[];
+  static_before: StaticSnapshot;
+  static_after: StaticSnapshot;
+  fixer_provider: string;
+  fixer_model: string;
+}
+
+export interface ValidationAggregate {
+  count: number;
+  avg_score: number | null;
+  verdicts: Record<string, number>;
+}
+
+export interface ValidationCalibrationRow {
+  suite_id: string;
+  framework: string | null;
+  predicted_pass_rate: number;
+  validator_score: number;
+  actual_pass_rate: number | null;
+  executed_at: string | null;
+  execution_id: string;
+}
+
+export interface ValidationProjectSummary {
+  suites: ValidationAggregate;
+  gherkin: ValidationAggregate;
+  calibration: ValidationCalibrationRow[];
+  calibration_mae: number | null;
+  independent_model: boolean;
+}
