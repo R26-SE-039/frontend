@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Check, FileText, RefreshCw, Save, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, FileText, RefreshCw, Save, ShieldCheck, Sparkles } from 'lucide-react';
 import { testCaseApi } from '../api/testCaseApi';
-import type { GherkinResult, UserStoryResponse } from '../types/testCase';
+import type { GherkinFixProposal, GherkinResult, UserStoryResponse, ValidationReport } from '../types/testCase';
 import TestCaseCodeEditor from '../components/testCase/TestCaseCodeEditor';
 import TestCasePill from '../components/testCase/TestCasePill';
+import ValidationPanel from '../components/testCase/ValidationPanel';
+import ValidationFixDialog from '../components/testCase/ValidationFixDialog';
+import { verdictTone } from '../components/testCase/ValidationScoreRing';
 
 export default function TestCaseGherkinPage() {
   const navigate = useNavigate();
@@ -17,6 +20,28 @@ export default function TestCaseGherkinPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+
+  // Independent validation state (per active gherkin)
+  const [report, setReport] = useState<ValidationReport | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const [proposal, setProposal] = useState<GherkinFixProposal | null>(null);
+  const [applyingFix, setApplyingFix] = useState(false);
+  const [previousScore, setPreviousScore] = useState<number | null>(null);
+  const editorRef = useRef<any>(null);
+
+  const loadReport = useCallback(async (gherkin: GherkinResult | null | undefined) => {
+    setPreviousScore(null);
+    if (!gherkin) {
+      setReport(null);
+      return;
+    }
+    try {
+      setReport(await testCaseApi.getGherkinValidation(gherkin.id));
+    } catch {
+      setReport(null);
+    }
+  }, []);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -42,7 +67,10 @@ export default function TestCaseGherkinPage() {
       const firstWithGherkin = storyList.find((story) => map[story.id]);
       const initial = firstWithGherkin?.id ?? storyList[0]?.id ?? null;
       setActiveStoryId((prev) => prev ?? initial);
-      if (initial && !activeStoryId) setEditorText(map[initial]?.gherkin_text ?? '');
+      if (initial && !activeStoryId) {
+        setEditorText(map[initial]?.gherkin_text ?? '');
+        await loadReport(map[initial]);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load Gherkin scenarios');
     } finally {
@@ -59,10 +87,12 @@ export default function TestCaseGherkinPage() {
   const activeGherkin = activeStoryId ? gherkins[activeStoryId] : null;
   const activeStory = stories.find((story) => story.id === activeStoryId);
   const isDirty = Boolean(activeGherkin && editorText !== activeGherkin.gherkin_text);
+  const reportStale = Boolean(report && (report.is_current === false || isDirty));
 
   const selectStory = (storyId: string) => {
     setActiveStoryId(storyId);
     setEditorText(gherkins[storyId]?.gherkin_text ?? '');
+    loadReport(gherkins[storyId]);
   };
 
   const patchGherkin = (storyId: string, result: GherkinResult) => {
@@ -76,6 +106,7 @@ export default function TestCaseGherkinPage() {
     setError(null);
     try {
       patchGherkin(activeStoryId, await testCaseApi.updateGherkin(activeGherkin.id, editorText));
+      if (report) setReport({ ...report, is_current: false });
     } catch (err: any) {
       setError(err.message || 'Failed to save Gherkin edits');
     } finally {
@@ -104,6 +135,8 @@ export default function TestCaseGherkinPage() {
         const results = await testCaseApi.generateGherkin(projectId, [activeStoryId]);
         if (results[0]) patchGherkin(activeStoryId, results[0]);
       }
+      setReport(null);
+      setPreviousScore(null);
     } catch (err: any) {
       setError(err.message || 'Gherkin generation failed');
     } finally {
@@ -111,7 +144,71 @@ export default function TestCaseGherkinPage() {
     }
   };
 
+  // ── Validation handlers ──
+
+  const handleValidate = async () => {
+    if (!activeGherkin || !activeStoryId) return;
+    setValidating(true);
+    setError(null);
+    try {
+      if (isDirty) {
+        patchGherkin(activeStoryId, await testCaseApi.updateGherkin(activeGherkin.id, editorText));
+      }
+      const next = await testCaseApi.validateGherkin(activeGherkin.id);
+      setReport({ ...next, is_current: true });
+      setPreviousScore(null);
+    } catch (err: any) {
+      setError(err.message || 'Validation failed');
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleProposeFix = async (findingIds?: string[]) => {
+    if (!activeGherkin) return;
+    setFixing(true);
+    setError(null);
+    try {
+      setProposal(await testCaseApi.proposeGherkinFix(activeGherkin.id, { findingIds, text: editorText }));
+    } catch (err: any) {
+      setError(err.message || 'Auto-fix failed');
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  const handleApplyFix = async () => {
+    if (!activeGherkin || !activeStoryId || !proposal) return;
+    setApplyingFix(true);
+    setError(null);
+    try {
+      const before = report?.score ?? null;
+      const parentId = report?.id ?? null;
+      const updated = await testCaseApi.updateGherkin(activeGherkin.id, proposal.fixed_text);
+      patchGherkin(activeStoryId, updated);
+      setProposal(null);
+      setValidating(true);
+      const next = await testCaseApi.validateGherkin(updated.id, parentId);
+      setReport({ ...next, is_current: true });
+      setPreviousScore(before);
+    } catch (err: any) {
+      setError(err.message || 'Failed to apply the fix');
+    } finally {
+      setApplyingFix(false);
+      setValidating(false);
+    }
+  };
+
+  const jumpToLine = (line: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.revealLineInCenter(line);
+    editor.setPosition({ lineNumber: line, column: 1 });
+    editor.focus();
+  };
+
   const approvedCount = Object.values(gherkins).filter((gherkin) => gherkin?.approved).length;
+  const tone = verdictTone(report?.verdict);
 
   return (
     <div className="space-y-8">
@@ -119,7 +216,7 @@ export default function TestCaseGherkinPage() {
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight text-[var(--foreground)]">Gherkin Editor</h2>
           <p className="text-xs text-[var(--muted)] mt-1">
-            Stage 2 — review the AI-generated scenarios, apply QA edits, and approve them for code generation.
+            Stage 2 — review the AI-generated scenarios, validate them independently, apply QA edits, and approve them for code generation.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -204,7 +301,7 @@ export default function TestCaseGherkinPage() {
             })}
           </div>
 
-          <div className="lg:col-span-9">
+          <div className="lg:col-span-9 space-y-6">
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm space-y-4">
               {activeGherkin ? (
                 <>
@@ -215,13 +312,26 @@ export default function TestCaseGherkinPage() {
                         {activeStory ? `As a ${activeStory.actor} — ${activeStory.goal}` : activeGherkin.story_id}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <TestCasePill label={activeGherkin.approved ? 'approved' : 'not approved'} type="approval" />
+                      {report && (
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${tone.bg} ${tone.text}`}>
+                          <ShieldCheck size={12} /> {report.score}% · {tone.label}
+                          {reportStale && <span className="text-[10px] font-black uppercase text-amber-500">(outdated)</span>}
+                        </span>
+                      )}
                       {isDirty && <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Unsaved edits</span>}
                     </div>
                   </div>
 
-                  <TestCaseCodeEditor value={editorText} language="gherkin" onChange={setEditorText} />
+                  <TestCaseCodeEditor
+                    value={editorText}
+                    language="gherkin"
+                    onChange={setEditorText}
+                    onMount={(editor) => {
+                      editorRef.current = editor;
+                    }}
+                  />
 
                   <div className="flex flex-wrap justify-end gap-2">
                     <button
@@ -235,6 +345,15 @@ export default function TestCaseGherkinPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={handleValidate}
+                      disabled={validating || fixing || applyingFix}
+                      className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-4 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-50"
+                    >
+                      <ShieldCheck size={14} className={validating ? 'animate-pulse' : ''} />
+                      {validating ? 'Validating...' : 'Validate'}
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleSave}
                       disabled={!isDirty || saving}
                       className="inline-flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-100 disabled:opacity-50"
@@ -244,6 +363,11 @@ export default function TestCaseGherkinPage() {
                     <button
                       type="button"
                       onClick={handleApprove}
+                      title={
+                        !activeGherkin.approved && report?.verdict === 'likely_failing'
+                          ? 'The validator flagged this scenario set as likely failing — review the findings first'
+                          : undefined
+                      }
                       className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold shadow-md transition ${
                         activeGherkin.approved
                           ? 'border border-slate-200 bg-white text-slate-500 shadow-none hover:text-slate-900'
@@ -275,8 +399,41 @@ export default function TestCaseGherkinPage() {
                 </div>
               )}
             </div>
+
+            {activeGherkin && (
+              <ValidationPanel
+                report={report}
+                validating={validating}
+                fixing={fixing || applyingFix}
+                stale={reportStale}
+                targetLabel="scenario"
+                onValidate={handleValidate}
+                onFix={handleProposeFix}
+                onJumpToLine={jumpToLine}
+                previousScore={previousScore}
+              />
+            )}
           </div>
         </div>
+      )}
+
+      {proposal && activeGherkin && (
+        <ValidationFixDialog
+          open
+          title={`AI auto-fix · ${activeGherkin.feature_name}`}
+          language="gherkin"
+          original={proposal.original_text}
+          fixed={proposal.fixed_text}
+          changes={proposal.changes}
+          addressed={proposal.addressed_findings}
+          staticBefore={proposal.static_before}
+          staticAfter={proposal.static_after}
+          fixerModel={proposal.fixer_model}
+          applying={applyingFix}
+          applyLabel="Apply & re-validate"
+          onApply={handleApplyFix}
+          onClose={() => setProposal(null)}
+        />
       )}
     </div>
   );
