@@ -7,11 +7,18 @@ import {
   FileCode2,
   RefreshCw,
   Rocket,
+  ShieldCheck,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { testCaseApi } from "../api/testCaseApi";
-import type { TestSuite } from "../types/testCase";
+import type {
+  TestSuite,
+  ValidationProjectSummary,
+  ValidationSummary,
+} from "../types/testCase";
 import TestCasePill from "../components/testCase/TestCasePill";
+import { verdictTone } from "../components/testCase/ValidationScoreRing";
 import { loadTestCaseSetup, type TestCaseSetup } from "../utils/testCaseSetup";
 
 const frameworkLabels: Record<string, string> = {
@@ -25,13 +32,33 @@ export default function TestScriptCodeReviewPage() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [setup, setSetup] = useState<TestCaseSetup | null>(null);
   const [suites, setSuites] = useState<TestSuite[]>([]);
+  const [validations, setValidations] = useState<Record<string, ValidationSummary>>({});
+  const [summary, setSummary] = useState<ValidationProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [validatingIds, setValidatingIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  const loadSuites = useCallback(async (id: string) => {
-    setSuites(await testCaseApi.getTestSuites(id));
+  const loadValidation = useCallback(async (id: string) => {
+    try {
+      const [latest, agg] = await Promise.all([
+        testCaseApi.getProjectValidationLatest(id, "suite"),
+        testCaseApi.getProjectValidationSummary(id),
+      ]);
+      setValidations(Object.fromEntries(latest.map((v) => [v.target_id, v])));
+      setSummary(agg);
+    } catch {
+      // Validation is additive; never block the suites list on it.
+    }
   }, []);
+
+  const loadSuites = useCallback(
+    async (id: string) => {
+      setSuites(await testCaseApi.getTestSuites(id));
+      await loadValidation(id);
+    },
+    [loadValidation],
+  );
 
   useEffect(() => {
     (async () => {
@@ -88,7 +115,51 @@ export default function TestScriptCodeReviewPage() {
     }
   };
 
+  const validateSuites = async (targets: TestSuite[]) => {
+    if (!projectId || targets.length === 0) return;
+    setError(null);
+    setValidatingIds(new Set(targets.map((s) => s.id)));
+    try {
+      // Sequential on purpose: each run is one LLM call and the backend
+      // shares a single API key/rate limit.
+      for (const suite of targets) {
+        try {
+          const report = await testCaseApi.validateSuite(suite.id);
+          setValidations((prev) => ({
+            ...prev,
+            [suite.id]: {
+              report_id: report.id,
+              target_id: suite.id,
+              score: report.score,
+              verdict: report.verdict,
+              is_current: true,
+              critical: report.findings.filter((f) => f.severity === "critical").length,
+              major: report.findings.filter((f) => f.severity === "major").length,
+              minor: report.findings.filter((f) => f.severity === "minor").length,
+              scenario_total: report.scenario_total,
+              scenario_pass_predicted: report.scenario_pass_predicted,
+              validator_model: report.validator_model,
+              created_at: report.created_at,
+            },
+          }));
+        } finally {
+          setValidatingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(suite.id);
+            return next;
+          });
+        }
+      }
+      await loadValidation(projectId);
+    } catch (err: any) {
+      setError(err.message || "Validation failed");
+      setValidatingIds(new Set());
+    }
+  };
+
   const staleCount = suites.filter((suite) => suite.is_stale).length;
+  const validatingAny = validatingIds.size > 0;
+  const unvalidated = suites.filter((s) => !validations[s.id] || validations[s.id].is_current === false);
 
   return (
     <div className="space-y-8">
@@ -98,8 +169,8 @@ export default function TestScriptCodeReviewPage() {
             Code Review
           </h2>
           <p className="text-xs text-[var(--muted)] mt-1">
-            Stage 5 — AI generates one executable suite per framework. Review,
-            edit, and pick the suite CI/CD should run.
+            Stage 5 — AI generates one executable suite per framework. Validate it
+            independently, auto-fix what fails, and pick the suite CI/CD should run.
             {setup && (
               <span className="ml-2 font-bold text-indigo-600">
                 Mode {setup.mode === "dom" ? "B · DOM-Aware" : "A · Abstract"}
@@ -116,6 +187,22 @@ export default function TestScriptCodeReviewPage() {
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />{" "}
             Refresh
           </button>
+          {suites.length > 0 && (
+            <button
+              type="button"
+              onClick={() => validateSuites(unvalidated.length ? unvalidated : suites)}
+              disabled={validatingAny || generating}
+              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Run deterministic checks + the independent AI judge on every suite"
+            >
+              <ShieldCheck size={14} className={validatingAny ? "animate-pulse" : ""} />
+              {validatingAny
+                ? `Validating ${validatingIds.size}…`
+                : unvalidated.length && unvalidated.length < suites.length
+                  ? `Validate ${unvalidated.length} Outdated`
+                  : "Validate All Suites"}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleGenerate}
@@ -163,6 +250,72 @@ export default function TestScriptCodeReviewPage() {
         </div>
       )}
 
+      {summary && summary.suites.count > 0 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Validated suites
+            </p>
+            <p className="mt-2 text-3xl font-black text-slate-900">
+              {summary.suites.count}
+              <span className="ml-1 text-sm font-bold text-slate-400">/ {suites.length}</span>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {Object.entries(summary.suites.verdicts).map(([verdict, n]) => {
+                const t = verdictTone(verdict as any);
+                return (
+                  <span key={verdict} className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${t.bg} ${t.text}`}>
+                    {n} {t.label.toLowerCase()}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Average predicted pass
+            </p>
+            <p className="mt-2 text-3xl font-black text-slate-900">
+              {summary.suites.avg_score ?? "–"}
+              <span className="text-sm font-bold text-slate-400">%</span>
+            </p>
+            <p className="mt-2 text-[10px] font-semibold text-slate-400">
+              {summary.independent_model
+                ? "Judge runs on a different model than the generator"
+                : "Judge runs as a separate pass of the generator model"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
+            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <Target size={12} /> Predicted vs actual
+            </p>
+            {summary.calibration.length === 0 ? (
+              <p className="mt-2 text-xs font-medium leading-5 text-slate-400">
+                Execute a validated suite to compare the validator's prediction with
+                the real CI result.
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 text-3xl font-black text-slate-900">
+                  ±{summary.calibration_mae ?? "–"}
+                  <span className="text-sm font-bold text-slate-400"> pts</span>
+                </p>
+                <ul className="mt-2 space-y-0.5">
+                  {summary.calibration.slice(0, 3).map((c) => (
+                    <li key={c.execution_id} className="flex justify-between text-[10px] font-semibold text-slate-500">
+                      <span className="capitalize">{c.framework}</span>
+                      <span>
+                        predicted {c.predicted_pass_rate}% · actual {c.actual_pass_rate ?? "–"}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-24">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
@@ -182,79 +335,117 @@ export default function TestScriptCodeReviewPage() {
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
-          {suites.map((suite) => (
-            <div
-              key={suite.id}
-              className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div className="border-b border-slate-100 p-5 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                      <Code size={18} />
+          {suites.map((suite) => {
+            const v = validations[suite.id];
+            const tone = verdictTone(v?.verdict);
+            const isValidating = validatingIds.has(suite.id);
+            return (
+              <div
+                key={suite.id}
+                className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="border-b border-slate-100 p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                        <Code size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900">
+                          {frameworkLabels[suite.framework] ?? suite.framework}
+                        </h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          {suite.language} · v{suite.version}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900">
-                        {frameworkLabels[suite.framework] ?? suite.framework}
-                      </h3>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        {suite.language} · v{suite.version}
-                      </p>
-                    </div>
+                    {suite.is_stale && <TestCasePill label="stale" type="run" />}
                   </div>
-                  {suite.is_stale && <TestCasePill label="stale" type="run" />}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <TestCasePill
-                    label={suite.mode === "dom" ? "DOM-aware" : "Abstract"}
-                    type="source"
-                  />
-                  <span className="text-[10px] font-bold text-slate-400">
-                    {suite.source_scenario_count} scenarios
-                  </span>
-                  {suite.llm_model && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <TestCasePill
+                      label={suite.mode === "dom" ? "DOM-aware" : "Abstract"}
+                      type="source"
+                    />
                     <span className="text-[10px] font-bold text-slate-400">
-                      · {suite.llm_model}
+                      {suite.source_scenario_count} scenarios
                     </span>
-                  )}
+                    {suite.llm_model && (
+                      <span className="text-[10px] font-bold text-slate-400">
+                        · {suite.llm_model}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 ${tone.bg}`}>
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck size={14} className={`${tone.text} ${isValidating ? "animate-pulse" : ""}`} />
+                      {isValidating ? (
+                        <span className="text-xs font-bold text-slate-600">Validating…</span>
+                      ) : v ? (
+                        <div>
+                          <p className={`text-xs font-black ${tone.text}`}>
+                            {v.score}% · {tone.label}
+                            {v.is_current === false && (
+                              <span className="ml-1 text-[10px] font-black uppercase text-amber-500">outdated</span>
+                            )}
+                          </p>
+                          <p className="text-[10px] font-semibold text-slate-500">
+                            {v.scenario_pass_predicted}/{v.scenario_total} predicted pass · {v.critical} critical · {v.major} major
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-500">Not validated</span>
+                      )}
+                    </div>
+                    {!isValidating && (
+                      <button
+                        type="button"
+                        onClick={() => validateSuites([suite])}
+                        disabled={validatingAny}
+                        className="rounded-lg border border-white/60 bg-white px-2 py-1 text-[10px] font-black text-indigo-600 shadow-sm transition hover:bg-indigo-50 disabled:opacity-50"
+                      >
+                        {v ? "Re-run" : "Validate"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <pre className="custom-scrollbar h-44 flex-1 overflow-auto bg-slate-950 p-4 font-mono text-[11px] leading-4 text-slate-300">
+                  {suite.code.split("\n").slice(0, 16).join("\n")}
+                </pre>
+
+                <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-500">
+                    <input
+                      type="radio"
+                      name="selected-for-run"
+                      checked={suite.selected_for_run}
+                      onChange={() => handleSelectForRun(suite)}
+                      className="h-4 w-4 accent-indigo-600"
+                    />
+                    <Rocket
+                      size={13}
+                      className={
+                        suite.selected_for_run
+                          ? "text-indigo-600"
+                          : "text-slate-300"
+                      }
+                    />
+                    Run this suite
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(`/test-script/code-review/${suite.id}`)
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-black text-indigo-600 transition hover:bg-indigo-100"
+                  >
+                    {v && (v.critical > 0 || v.major > 0) ? "Review & Fix" : "Open Editor"} <ArrowRight size={12} />
+                  </button>
                 </div>
               </div>
-
-              <pre className="custom-scrollbar h-44 flex-1 overflow-auto bg-slate-950 p-4 font-mono text-[11px] leading-4 text-slate-300">
-                {suite.code.split("\n").slice(0, 16).join("\n")}
-              </pre>
-
-              <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-4">
-                <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-500">
-                  <input
-                    type="radio"
-                    name="selected-for-run"
-                    checked={suite.selected_for_run}
-                    onChange={() => handleSelectForRun(suite)}
-                    className="h-4 w-4 accent-indigo-600"
-                  />
-                  <Rocket
-                    size={13}
-                    className={
-                      suite.selected_for_run
-                        ? "text-indigo-600"
-                        : "text-slate-300"
-                    }
-                  />
-                  Run this suite
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(`/test-script/code-review/${suite.id}`)
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-[11px] font-black text-indigo-600 transition hover:bg-indigo-100"
-                >
-                  Open Editor <ArrowRight size={12} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

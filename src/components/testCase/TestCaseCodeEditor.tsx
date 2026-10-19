@@ -6,6 +6,8 @@ type TestCaseCodeEditorProps = {
   onChange?: (value: string) => void;
   height?: string;
   readOnly?: boolean;
+  /** Receives the Monaco editor instance so callers can reveal lines. */
+  onMount?: (editor: any) => void;
 };
 
 export default function TestCaseCodeEditor({
@@ -14,6 +16,7 @@ export default function TestCaseCodeEditor({
   onChange,
   height = '480px',
   readOnly = false,
+  onMount,
 }: TestCaseCodeEditorProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200">
@@ -21,6 +24,7 @@ export default function TestCaseCodeEditor({
         height={height}
         language={language}
         value={value}
+        onMount={(editor) => onMount?.(editor)}
         onChange={(next) => onChange?.(next ?? '')}
         theme="vs"
         loading={

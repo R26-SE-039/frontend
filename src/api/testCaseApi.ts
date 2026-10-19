@@ -7,6 +7,7 @@ import type {
   DomElement,
   ExecuteResponse,
   ExecutionEvent,
+  GherkinFixProposal,
   GherkinResult,
   GitHubConnectResponse,
   GitHubConnection,
@@ -17,10 +18,14 @@ import type {
   RunDetail,
   RunSummary,
   StartExplorationResponse,
+  SuiteFixProposal,
   TestCaseProject,
   TestSuite,
   UserStoryPayload,
   UserStoryResponse,
+  ValidationProjectSummary,
+  ValidationReport,
+  ValidationSummary,
 } from "../types/testCase";
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -315,6 +320,72 @@ export const testCaseApi = {
     request<RiskResponse>(`/api/v1/projects/${projectId}/risk`),
 
   // ── GitHub connection ─────────────────────────────────────────────────────
+  // ── Independent validation (static checks + LLM judge + auto-fix) ──
+  validateSuite: async (
+    suiteId: string,
+    parentReportId?: string | null,
+  ): Promise<ValidationReport> =>
+    request<ValidationReport>(`/api/v1/validation/suites/${suiteId}`, {
+      method: "POST",
+      body: JSON.stringify({ parent_report_id: parentReportId ?? null }),
+      timeoutMs: LLM_REQUEST_TIMEOUT_MS,
+    }),
+
+  getSuiteValidation: async (suiteId: string): Promise<ValidationReport | null> =>
+    request<ValidationReport | null>(`/api/v1/validation/suites/${suiteId}`),
+
+  proposeSuiteFix: async (
+    suiteId: string,
+    options?: { findingIds?: string[]; code?: string },
+  ): Promise<SuiteFixProposal> =>
+    request<SuiteFixProposal>(`/api/v1/validation/suites/${suiteId}/fix`, {
+      method: "POST",
+      body: JSON.stringify({
+        finding_ids: options?.findingIds ?? null,
+        code: options?.code ?? null,
+      }),
+      timeoutMs: LLM_REQUEST_TIMEOUT_MS,
+    }),
+
+  validateGherkin: async (
+    gherkinId: string,
+    parentReportId?: string | null,
+  ): Promise<ValidationReport> =>
+    request<ValidationReport>(`/api/v1/validation/gherkin/${gherkinId}`, {
+      method: "POST",
+      body: JSON.stringify({ parent_report_id: parentReportId ?? null }),
+      timeoutMs: LLM_REQUEST_TIMEOUT_MS,
+    }),
+
+  getGherkinValidation: async (gherkinId: string): Promise<ValidationReport | null> =>
+    request<ValidationReport | null>(`/api/v1/validation/gherkin/${gherkinId}`),
+
+  proposeGherkinFix: async (
+    gherkinId: string,
+    options?: { findingIds?: string[]; text?: string },
+  ): Promise<GherkinFixProposal> =>
+    request<GherkinFixProposal>(`/api/v1/validation/gherkin/${gherkinId}/fix`, {
+      method: "POST",
+      body: JSON.stringify({
+        finding_ids: options?.findingIds ?? null,
+        text: options?.text ?? null,
+      }),
+      timeoutMs: LLM_REQUEST_TIMEOUT_MS,
+    }),
+
+  getProjectValidationLatest: async (
+    projectId: string,
+    targetType: "suite" | "gherkin",
+  ): Promise<ValidationSummary[]> =>
+    request<ValidationSummary[]>(
+      `/api/v1/validation/projects/${projectId}/latest?target_type=${targetType}`,
+    ),
+
+  getProjectValidationSummary: async (
+    projectId: string,
+  ): Promise<ValidationProjectSummary> =>
+    request<ValidationProjectSummary>(`/api/v1/validation/projects/${projectId}/summary`),
+
   validateGitHubToken: async (token: string): Promise<GitHubValidateResponse> =>
     request<GitHubValidateResponse>("/api/v1/github/validate", {
       method: "POST",
