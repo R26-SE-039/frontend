@@ -59,24 +59,34 @@ export default function RtmGapsPage() {
     }
   };
 
+  const isCritical = (level: string) => level.trim().toLowerCase() === "critical";
+
   const generateAllCritical = async () => {
     if (!ctx.projectId) return;
-    const items = gaps
-      .filter((g) => g.risk_level === "CRITICAL" || g.risk_level === "HIGH")
-      .flatMap((gap) =>
-        gap.missing_acceptance_criteria.map((criterion) => ({
-          project_id: ctx.projectId as string,
-          requirement_id: gap.requirement_id,
-          requirement_text: gap.requirement_text,
-          user_story_id: gap.user_story_id,
-          user_story_title: gap.user_story_title,
-          user_story_text: gap.user_story_text,
-          acceptance_criterion: criterion,
-        })),
-      );
-    if (items.length === 0) return;
-    setGeneratingAll(true);
+    const criticalGaps = gaps.filter((g) => isCritical(g.risk_level));
+    const items = criticalGaps.flatMap((gap) =>
+      gap.missing_acceptance_criteria.map((criterion) => ({
+        project_id: ctx.projectId as string,
+        requirement_id: gap.requirement_id,
+        requirement_text: gap.requirement_text,
+        user_story_id: gap.user_story_id,
+        user_story_title: gap.user_story_title,
+        user_story_text: gap.user_story_text,
+        acceptance_criterion: criterion,
+      })),
+    );
     setError(null);
+    if (criticalGaps.length === 0) {
+      setError("No Critical-risk gaps in this iteration right now.");
+      return;
+    }
+    if (items.length === 0) {
+      setError(
+        "Every Critical-risk requirement already has its acceptance criteria covered — the risk comes from failing or unexecuted tests, not missing test cases.",
+      );
+      return;
+    }
+    setGeneratingAll(true);
     try {
       const { generated: results } = await rtmApi.generateAllGapTestCases(items);
       setGenerated((g) => {
@@ -104,8 +114,8 @@ export default function RtmGapsPage() {
     }
   };
 
-  const critical = gaps.filter((g) => g.risk_level === "CRITICAL").length;
-  const high = gaps.filter((g) => g.risk_level === "HIGH").length;
+  const critical = gaps.filter((g) => isCritical(g.risk_level)).length;
+  const high = gaps.filter((g) => g.risk_level.trim().toLowerCase() === "high").length;
 
   return (
     <div className="space-y-8">

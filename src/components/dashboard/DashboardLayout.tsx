@@ -8,6 +8,7 @@ import {
   Sparkles,
   FileText,
   ClipboardCheck,
+  ListChecks,
   ChevronLeft,
   ArrowRight,
   Layout,
@@ -195,6 +196,13 @@ export const rtmLinks = [
       "Redundancy, criticality, and weakness analysis across the test portfolio.",
     path: "/rtm/portfolio",
     icon: <ClipboardCheck size={18} />,
+  },
+  {
+    label: "Testing",
+    description:
+      "Executable test evidence for quality prediction, RTM, coverage gaps and test improvement.",
+    path: "/rtm/testing",
+    icon: <ListChecks size={18} />,
   },
 ] as const;
 

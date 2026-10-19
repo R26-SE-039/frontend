@@ -277,3 +277,78 @@ export interface GenerateGapTestCasePayload {
   user_story_text: string;
   acceptance_criterion: string;
 }
+
+// ── Research testing dashboard (backend: /api/testing, tests/reporting.py) ──
+
+export type TestStatus = "Passed" | "Failed" | "Blocked" | "Not executed";
+export type ManualStatus = "Passed" | "Failed" | "Not verified";
+
+export interface TestEvidence {
+  label: string;
+  value: string;
+}
+
+export interface AutomatedTestCase {
+  id: string;
+  module: string;
+  title: string;
+  objective: string;
+  expected: string;
+  actual: string;
+  status: TestStatus;
+  level: string;
+  nodeid: string;
+  duration_ms: number;
+  failure: string | null;
+  evidence: TestEvidence[];
+}
+
+export interface TestModuleSummary {
+  module: string;
+  total: number;
+  Passed: number;
+  Failed: number;
+  Blocked: number;
+  "Not executed": number;
+}
+
+export interface TestReport {
+  generated_at: string;
+  duration_s: number;
+  suite: string;
+  command: string;
+  environment: Record<string, string | number>;
+  summary: { total: number } & Record<TestStatus, number>;
+  modules: TestModuleSummary[];
+  cases: AutomatedTestCase[];
+}
+
+export interface ManualCheck {
+  id: string;
+  module: string;
+  title: string;
+  objective: string;
+  steps: string;
+  expected: string;
+  kind: "manual";
+  status: ManualStatus;
+  notes: string;
+  verified_by: string;
+  verified_at: string | null;
+}
+
+export interface TestRunState {
+  status: "idle" | "running" | "done" | "error";
+  suite: "offline" | "full" | null;
+  started_at: string | null;
+  finished_at: string | null;
+  exit_code: number | null;
+  output_tail: string;
+}
+
+export interface TestingReportResponse {
+  suite_available: boolean;
+  report: TestReport | null;
+  manual_checks: ManualCheck[];
+  run: TestRunState;
+}
