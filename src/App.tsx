@@ -33,6 +33,7 @@ import RtmGapsPage from "./pages/RtmGapsPage";
 import RtmCoveragePage from "./pages/RtmCoveragePage";
 import RtmPortfolioPage from "./pages/RtmPortfolioPage";
 import RtmRequirementDetailPage from "./pages/RtmRequirementDetailPage";
+import RtmTestingPage from "./pages/RtmTestingPage";
 import SystemStatusPage from "./pages/SystemStatusPage";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 
@@ -321,6 +322,14 @@ function App() {
             element={
               <RtmRoute title="Portfolio">
                 <RtmPortfolioPage />
+              </RtmRoute>
+            }
+          />
+          <Route
+            path="/rtm/testing"
+            element={
+              <RtmRoute title="Testing">
+                <RtmTestingPage />
               </RtmRoute>
             }
           />

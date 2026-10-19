@@ -14,6 +14,10 @@ import type {
   MatrixRow,
   PortfolioAnalysis,
   C2QualityPrediction,
+  ManualCheck,
+  ManualStatus,
+  TestingReportResponse,
+  TestRunState,
 } from "../types/rtm";
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -182,4 +186,25 @@ export const rtmApi = {
 
   getGithubStatus: (projectId: string): Promise<GithubConnectionStatus> =>
     request<GithubConnectionStatus>(`/api/github/status?project_id=${encodeURIComponent(projectId)}`),
+
+  // ── Research testing dashboard ────────────────────────────────────────────
+  getTestingReport: (): Promise<TestingReportResponse> =>
+    request<TestingReportResponse>(`/api/testing/report`),
+
+  runTests: (suite: "offline" | "full"): Promise<TestRunState> =>
+    request<TestRunState>(`/api/testing/run`, {
+      method: "POST",
+      body: JSON.stringify({ suite }),
+    }),
+
+  getTestRunStatus: (): Promise<TestRunState> => request<TestRunState>(`/api/testing/run`),
+
+  recordManualCheck: (
+    checkId: string,
+    payload: { status: ManualStatus; notes: string; verified_by: string },
+  ): Promise<ManualCheck> =>
+    request<ManualCheck>(`/api/testing/manual/${encodeURIComponent(checkId)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
 };
