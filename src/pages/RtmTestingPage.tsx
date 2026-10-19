@@ -39,6 +39,27 @@ const STATUS_COLOR: Record<TestStatus, string> = {
 const LEVEL_LABEL: Record<string, string> = { unit: "Unit", api: "API", live: "Live E2E" };
 const STATUSES: TestStatus[] = ["Passed", "Failed", "Blocked", "Not executed"];
 
+// Pytest exit codes: 0 all passed, 1 completed with failures, 2 interrupted, 3 internal error,
+// 4 usage error, 5 no tests collected.
+function runOutcome(exitCode: number | null, report: TestingReportResponse["report"]): string {
+  const s = report?.summary;
+  const counts = s ? `${s.Passed} passed, ${s.Failed} failed, ${s.Blocked} blocked of ${s.total}` : "";
+  switch (exitCode) {
+    case 0:
+      return `Run completed: all tests passed${counts ? ` (${counts})` : ""}`;
+    case 1:
+      return `Run completed: ${s ? `${s.Failed} test${s.Failed === 1 ? "" : "s"} failed` : "some tests failed"}${counts ? ` (${counts})` : ""}`;
+    case 2:
+      return "Run interrupted before completion (pytest exit code 2)";
+    case 5:
+      return "No tests were collected (pytest exit code 5)";
+    case null:
+      return "Run did not finish (see console output)";
+    default:
+      return `Pytest could not run the suite (exit code ${exitCode}); see console output`;
+  }
+}
+
 function StatusPill({ status }: { status: TestStatus | ManualStatus }) {
   return (
     <span className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${STATUS_STYLE[status]}`}>
@@ -342,8 +363,14 @@ export default function RtmTestingPage() {
             {running && <RefreshCw size={13} className="animate-spin" />}
             {running
               ? `Running ${data.run.suite} suite… (live tests can take 1–2 minutes)`
-              : `Last run (${data.run.suite}) finished ${data.run.finished_at ? new Date(data.run.finished_at).toLocaleTimeString() : ""} · pytest exit code ${data.run.exit_code ?? "—"}`}
+              : `Last run (${data.run.suite}) finished ${data.run.finished_at ? new Date(data.run.finished_at).toLocaleTimeString() : ""} · ${runOutcome(data.run.exit_code, report)}`}
           </div>
+          {!running && data.run.exit_code === 1 && (
+            <p className="mt-1 text-[11px] text-[var(--muted)]">
+              Pytest exits with code 1 whenever the run completes and at least one test fails. The failed tests are
+              findings about the system under test, listed in the table below; the run itself worked.
+            </p>
+          )}
           {!running && data.run.output_tail && (
             <details className="mt-2">
               <summary className="cursor-pointer text-[11px] text-[var(--muted)]">pytest console output</summary>
